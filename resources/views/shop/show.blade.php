@@ -35,7 +35,7 @@
     @else
         <p class="price" style="font-size:1.5rem;margin:0 0 8px">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
     @endif
-    <p class="muted">Harga {{ $tierLabel }} · {{ $product->barang_kode }}</p>
+    <p class="muted">Kode barang · {{ $product->barang_kode }}</p>
     @include('shop.partials.product-stock', ['product' => $product, 'class' => 'detail-stock'])
 
     <div class="sticky-cart-bar">
