@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\MemberContextService;
+use App\Services\NumartCustomerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -11,18 +12,20 @@ class MemberVerificationController extends Controller
 {
     public function __construct(
         protected MemberContextService $memberContext,
+        protected NumartCustomerService $numartCustomers,
     ) {}
 
     public function create(Request $request): View|RedirectResponse
     {
         $user = $request->user();
 
-        if (! $this->memberContext->needsVerificationUpload($user) && $user->member_verification_status !== 'rejected') {
+        if (! $this->memberContext->needsVerificationUpload($user)) {
             return redirect()->route('shop.index');
         }
 
         return view('member.verification', [
             'user' => $user,
+            'verificationStatus' => $this->memberContext->verificationStatusForUser($user),
             'isGrosir' => $this->memberContext->isGrosirMember($user),
             'cartCount' => 0,
         ]);
@@ -58,8 +61,17 @@ class MemberVerificationController extends Controller
             'verification_reviewed_at' => null,
         ]);
 
+        if ($user->numart_customer_id) {
+            $this->numartCustomers->syncVerificationToCustomer(
+                (int) $user->numart_customer_id,
+                $ktpPath,
+                $businessPath,
+                'pending',
+            );
+        }
+
         return redirect()
             ->route('shop.index')
-            ->with('success', 'Dokumen verifikasi terkirim. Menunggu persetujuan admin untuk COD.');
+            ->with('success', 'Dokumen verifikasi terkirim. Menunggu persetujuan kasir di POS untuk COD.');
     }
 }

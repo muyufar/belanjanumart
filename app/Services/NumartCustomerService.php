@@ -178,9 +178,48 @@ class NumartCustomerService
         };
     }
 
+    public function verificationStatusFromCustomer(object $customer): string
+    {
+        $status = strtolower(trim((string) ($customer->customer_verifikasi_status ?? 'none')));
+
+        if (in_array($status, ['none', 'pending', 'approved', 'rejected'], true)) {
+            return $status;
+        }
+
+        return 'none';
+    }
+
     public function warungStatusFromCustomer(object $customer): string
     {
-        return 'none';
+        return $this->verificationStatusFromCustomer($customer);
+    }
+
+    /**
+     * Sinkronkan upload verifikasi member ke master customer Numart.
+     */
+    public function syncVerificationToCustomer(
+        int $customerId,
+        ?string $ktpPath,
+        ?string $businessPhotoPath,
+        string $status = 'pending',
+    ): void {
+        if ($customerId < 1) {
+            return;
+        }
+
+        try {
+            DB::connection('numart')
+                ->table('customer')
+                ->where('customer_id', $customerId)
+                ->update([
+                    'customer_ktp_path' => $ktpPath,
+                    'customer_foto_warung_path' => $businessPhotoPath,
+                    'customer_verifikasi_status' => $status,
+                    'customer_verifikasi_at' => now('Asia/Jakarta')->format('Y-m-d H:i:s'),
+                ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function findByKartu(string $kartu): ?object
@@ -257,6 +296,8 @@ class NumartCustomerService
      */
     public function applyCustomerToUser(User $user, object $customer): User
     {
+        $verificationStatus = $this->verificationStatusFromCustomer($customer);
+
         $user->fill([
             'numart_customer_id' => (int) $customer->customer_id,
             'name' => $customer->customer_nama,
@@ -265,6 +306,9 @@ class NumartCustomerService
             'price_tier' => $this->priceTierFromCustomer($customer),
             'member_card' => strtoupper(trim((string) ($customer->customer_kartu ?? ''))),
             'member_cabang' => (int) ($customer->customer_cabang ?? 0),
+            'member_verification_status' => $verificationStatus,
+            'ktp_path' => $customer->customer_ktp_path ?? $user->ktp_path,
+            'business_photo_path' => $customer->customer_foto_warung_path ?? $user->business_photo_path,
         ]);
 
         if (! $user->email || str_ends_with($user->email, '@belanja.local')) {

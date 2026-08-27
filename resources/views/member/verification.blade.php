@@ -17,7 +17,7 @@
             @endif
         </p>
 
-        @if($user->member_verification_status === 'rejected')
+        @if(($verificationStatus ?? 'none') === 'rejected')
             <div class="toast toast--err" style="margin-bottom:12px">Verifikasi sebelumnya ditolak. Silakan upload ulang.</div>
         @endif
 

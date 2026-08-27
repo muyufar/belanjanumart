@@ -47,18 +47,28 @@ class MemberContextService
         };
     }
 
+    public function verificationStatusForUser(?User $user): string
+    {
+        if (! $user) {
+            return 'none';
+        }
+
+        $customer = $this->customerForUser($user);
+        if ($customer) {
+            return $this->customers->verificationStatusFromCustomer($customer);
+        }
+
+        return (string) ($user->member_verification_status ?? 'none');
+    }
+
     public function canUseCod(?User $user): bool
     {
-        return $user !== null && $user->member_verification_status === 'approved';
+        return $this->verificationStatusForUser($user) === 'approved';
     }
 
     public function needsVerificationUpload(User $user): bool
     {
-        if (in_array($user->member_verification_status, ['pending', 'approved'], true)) {
-            return false;
-        }
-
-        return $user->ktp_path === null;
+        return ! in_array($this->verificationStatusForUser($user), ['pending', 'approved'], true);
     }
 
     public function isGrosirMember(User $user): bool

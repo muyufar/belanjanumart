@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CartSessionService;
+use App\Services\MemberContextService;
 use App\Services\NumartCustomerService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -11,6 +12,7 @@ class ProfileController extends Controller
 {
     public function __construct(
         protected NumartCustomerService $numartCustomers,
+        protected MemberContextService $memberContext,
         protected CartSessionService $cart,
     ) {}
 
@@ -36,6 +38,7 @@ class ProfileController extends Controller
             'customer' => $customer,
             'history' => $history,
             'points' => $points,
+            'verificationStatus' => $this->memberContext->verificationStatusForUser($user),
             'cartCount' => $this->cart->count(),
         ]);
     }

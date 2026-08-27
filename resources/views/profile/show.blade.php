@@ -22,17 +22,17 @@
             <div class="digital-card__meta" style="margin-top:8px">
                 Verifikasi:
                 @php
-                    $vStatus = auth()->user()->member_verification_status ?? 'none';
+                    $vStatus = $verificationStatus ?? 'none';
                 @endphp
                 <strong>{{ match($vStatus) {
                     'approved' => 'Disetujui (COD aktif)',
-                    'pending' => 'Menunggu admin',
+                    'pending' => 'Menunggu kasir POS',
                     'rejected' => 'Ditolak — upload ulang',
                     default => 'Belum diverifikasi',
                 } }}</strong>
             </div>
         </div>
-        @if(in_array(auth()->user()->member_verification_status ?? 'none', ['none', 'rejected'], true))
+        @if(in_array($verificationStatus ?? 'none', ['none', 'rejected'], true))
             <a href="{{ route('member.verification.create') }}" class="btn block" style="margin-top:12px">Upload dokumen verifikasi</a>
         @endif
         @auth

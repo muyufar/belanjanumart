@@ -132,3 +132,41 @@ Lalu **Deploy** ulang dari hPanel jika perlu.
 - Permission folder `storage`, `bootstrap/cache` → **775**
 - Nonaktifkan sementara **Hotlink protection** / **Access Manager** di hPanel
 - Cek **Error log** di hPanel → **Advanced** → **Error pages** / **Logs**
+
+## Verifikasi member (POS)
+
+Jalankan sekali di **MySQL Numart POS** (phpMyAdmin atau CLI):
+
+```sql
+-- file: numart/db/migration_customer_verifikasi.sql
+```
+
+Kasir verifikasi KTP/foto warung di **Penjualan → Belanja Online** (bukan admin Laravel).
+Pastikan `marketplace-config.php` di POS sudah mengarah ke `belanja.numart.id` agar preview gambar dokumen bisa dibuka.
+
+## Error 500 setelah login / katalog kosong
+
+Halaman toko butuh koneksi ke **database POS Numart** (`NUMART_DB_*` di `.env`), terpisah dari database belanja (`DB_*`).
+
+Di Hostinger (hPanel → Databases), contoh nilai yang benar:
+
+```env
+DB_DATABASE=u700125577_belanjanumart
+DB_USERNAME=u700125577_belanjanumart
+DB_PASSWORD=<password database belanja>
+
+NUMART_DB_HOST=127.0.0.1
+NUMART_DB_PORT=3306
+NUMART_DB_DATABASE=u700125577_numartv2
+NUMART_DB_USERNAME=u700125577_numartv2
+NUMART_DB_PASSWORD=<password database numartv2>
+```
+
+Setelah edit `.env`:
+
+```bash
+php artisan config:clear
+php artisan marketplace:check-numart
+```
+
+Perintah `marketplace:check-numart` harus menampilkan **OK**. Jika **GAGAL / access denied**, username/password `NUMART_DB_*` belum cocok dengan user MySQL di hPanel.

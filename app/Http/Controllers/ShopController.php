@@ -6,6 +6,7 @@ use App\Services\CartSessionService;
 use App\Services\CatalogService;
 use App\Services\MemberContextService;
 use App\Services\PricingService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -29,31 +30,39 @@ class ShopController extends Controller
         $kategoriId = $tipe ? null : ($request->integer('kategori') ?: null);
         $perPage = (int) config('marketplace.products_per_page', 20);
 
-        $products = match ($tipe) {
-            CatalogService::TIPE_TERBARU => $this->catalog->paginateLatestProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
-            CatalogService::TIPE_TERLARIS => $this->catalog->paginateBestSellingProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
-            default => $this->catalog->paginateProducts($cabang, $tier, $search, $kategoriId, $perPage, 'page', null, null, $cabang),
-        };
+        try {
+            $products = match ($tipe) {
+                CatalogService::TIPE_TERBARU => $this->catalog->paginateLatestProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
+                CatalogService::TIPE_TERLARIS => $this->catalog->paginateBestSellingProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
+                default => $this->catalog->paginateProducts($cabang, $tier, $search, $kategoriId, $perPage, 'page', null, null, $cabang),
+            };
 
-        $showHomeSections = ! $search && ! $kategoriId && ! $tipe && $products->currentPage() === 1;
+            $showHomeSections = ! $search && ! $kategoriId && ! $tipe && $products->currentPage() === 1;
 
-        return view('shop.index', [
-            'products' => $products,
-            'categories' => $this->catalog->categoriesFromPusat(),
-            'latestProducts' => $showHomeSections ? $this->catalog->latestProducts($cabang, $tier, null, $cabang) : collect(),
-            'bestSellers' => $showHomeSections ? $this->catalog->bestSellingProducts($cabang, $tier, null, $cabang) : collect(),
-            'discounted' => $showHomeSections ? $this->catalog->discountedProducts($cabang, $tier, null, $cabang) : collect(),
-            'showHomeSections' => $showHomeSections,
-            'tier' => $tier,
-            'tierLabel' => $this->pricing->tierLabel($tier),
-            'minOrder' => $this->memberContext->minOrderAmount($tier),
-            'branchLabel' => $this->memberContext->branchLabel($cabang),
-            'cartCount' => $this->cart->count(),
-            'search' => $search,
-            'kategoriId' => $kategoriId,
-            'tipe' => $tipe,
-            'bestSellersDays' => (int) config('marketplace.best_sellers_days', 7),
-        ]);
+            return view('shop.index', [
+                'products' => $products,
+                'categories' => $this->catalog->categoriesFromPusat(),
+                'latestProducts' => $showHomeSections ? $this->catalog->latestProducts($cabang, $tier, null, $cabang) : collect(),
+                'bestSellers' => $showHomeSections ? $this->catalog->bestSellingProducts($cabang, $tier, null, $cabang) : collect(),
+                'discounted' => $showHomeSections ? $this->catalog->discountedProducts($cabang, $tier, null, $cabang) : collect(),
+                'showHomeSections' => $showHomeSections,
+                'tier' => $tier,
+                'tierLabel' => $this->pricing->tierLabel($tier),
+                'minOrder' => $this->memberContext->minOrderAmount($tier),
+                'branchLabel' => $this->memberContext->branchLabel($cabang),
+                'cartCount' => $this->cart->count(),
+                'search' => $search,
+                'kategoriId' => $kategoriId,
+                'tipe' => $tipe,
+                'bestSellersDays' => (int) config('marketplace.best_sellers_days', 7),
+            ]);
+        } catch (QueryException $e) {
+            report($e);
+
+            return view('shop.unavailable', [
+                'cartCount' => $this->cart->count(),
+            ]);
+        }
     }
 
     public function show(Request $request, int $barangId): View
