@@ -14,9 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'numart.api' => \App\Http\Middleware\VerifyNumartApiSecret::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'api/webhooks/*',
+            'api/numart/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
