@@ -6,7 +6,6 @@ use App\Services\CartSessionService;
 use App\Services\CatalogService;
 use App\Services\MemberContextService;
 use App\Services\PricingService;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -56,7 +55,7 @@ class ShopController extends Controller
                 'tipe' => $tipe,
                 'bestSellersDays' => (int) config('marketplace.best_sellers_days', 7),
             ]);
-        } catch (QueryException $e) {
+        } catch (\Throwable $e) {
             report($e);
 
             return view('shop.unavailable', [
@@ -107,7 +106,7 @@ class ShopController extends Controller
                 'categories' => $this->catalog->categoriesFromPusat(null),
                 'cartCount' => $this->cart->count(),
             ]);
-        } catch (QueryException $e) {
+        } catch (\Throwable $e) {
             report($e);
 
             return view('shop.unavailable', [
@@ -147,7 +146,7 @@ class ShopController extends Controller
                 'search' => $search,
                 'tierLabel' => $this->pricing->tierLabel($tier),
             ]);
-        } catch (QueryException $e) {
+        } catch (\Throwable $e) {
             report($e);
 
             return view('shop.unavailable', [

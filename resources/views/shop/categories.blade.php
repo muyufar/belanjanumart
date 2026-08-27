@@ -27,11 +27,11 @@
             'visual' => $categoryIcons->forProductType('terlaris'),
         ])
         @foreach($categories as $kat)
-            @include('shop.partials.category-link', [
-                'href' => route('shop.category', $kat->kategori_id),
-                'label' => $kat->kategori_nama,
-                'visual' => $categoryIcons->forCategory($kat),
-            ])
+        @include('shop.partials.category-link', [
+            'href' => url('/kategori/'.$kat->kategori_id),
+            'label' => $kat->kategori_nama,
+            'visual' => $categoryIcons->forCategory($kat),
+        ])
         @endforeach
     </div>
 

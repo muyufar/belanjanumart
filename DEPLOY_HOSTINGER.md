@@ -120,6 +120,9 @@ git pull origin main
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan storage:link
+php artisan route:clear
+php artisan config:clear
+php artisan view:clear
 ```
 
 Lalu **Deploy** ulang dari hPanel jika perlu.

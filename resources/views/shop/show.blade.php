@@ -4,7 +4,7 @@
 @section('page_class', 'page--detail')
 
 @section('content')
-    <a href="{{ $kategoriId ? route('shop.category', $kategoriId) : route('shop.index') }}" class="detail-back">
+    <a href="{{ $kategoriId ? url('/kategori/'.$kategoriId) : route('shop.index') }}" class="detail-back">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         Kembali
     </a>

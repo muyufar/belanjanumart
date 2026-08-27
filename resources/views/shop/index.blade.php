@@ -48,7 +48,7 @@
             <span>Terlaris</span>
         </a>
         @foreach($categories->take(16) as $kat)
-            <a href="{{ route('shop.category', $kat->kategori_id) }}"
+            <a href="{{ url('/kategori/'.$kat->kategori_id) }}"
                class="cat-item {{ $kategoriId == $kat->kategori_id ? 'is-active' : '' }}">
                 @include('shop.partials.category-icon', ['visual' => $categoryIcons->forCategory($kat)])
                 <span>{{ Str::limit($kat->kategori_nama, 11) }}</span>
