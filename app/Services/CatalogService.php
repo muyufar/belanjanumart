@@ -40,20 +40,40 @@ class CatalogService
     }
 
     /** Kategori master selalu dari cabang pusat (0). */
-    public function categoriesFromPusat(): Collection
+    public function categoriesFromPusat(?int $limit = 50): Collection
     {
-        return $this->categories((int) config('marketplace.catalog_cabang_display', 0));
+        return $this->categories((int) config('marketplace.catalog_cabang_display', 0), $limit);
     }
 
-    public function categories(int $cabangId = 0): Collection
+    public function categories(int $cabangId = 0, ?int $limit = 50): Collection
     {
-        return DB::connection('numart')
+        $q = DB::connection('numart')
             ->table('kategori')
             ->where('kategori_status', '1')
             ->where('kategori_cabang', $cabangId)
-            ->orderBy('kategori_nama')
-            ->limit(50)
-            ->get();
+            ->orderBy('kategori_nama');
+
+        if ($limit !== null && $limit > 0) {
+            $q->limit($limit);
+        }
+
+        return $q->get();
+    }
+
+    public function categoryById(int $kategoriId, int $cabangId = 0): ?object
+    {
+        if ($kategoriId < 1) {
+            return null;
+        }
+
+        $cabangId = $cabangId > 0 ? $cabangId : (int) config('marketplace.catalog_cabang_display', 0);
+
+        return DB::connection('numart')
+            ->table('kategori')
+            ->where('kategori_id', $kategoriId)
+            ->where('kategori_status', '1')
+            ->where('kategori_cabang', $cabangId)
+            ->first();
     }
 
     public function products(int $cabangId, int $tier, ?string $search = null, ?int $kategoriId = null, int $limit = 24, int $offset = 0): Collection

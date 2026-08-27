@@ -339,6 +339,29 @@ a { color: inherit; text-decoration: none; }
 
 #kategori { scroll-margin-top: 12px; }
 
+/* ── Categories grid (halaman Kategori) ── */
+.cat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px 10px;
+    padding-bottom: 8px;
+}
+
+.cat-grid .cat-item {
+    width: auto;
+}
+
+.cat-grid .cat-item span {
+    font-size: 0.65rem;
+    word-break: break-word;
+}
+
+@media (min-width: 480px) {
+    .cat-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
 /* ── Product grid ── */
 .grid {
     display: grid;

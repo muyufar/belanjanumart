@@ -22,6 +22,8 @@ Route::redirect('/ganti-password', '/masuk');
 
 Route::middleware('auth')->group(function () {
     Route::get('/', [ShopController::class, 'index'])->name('shop.index');
+    Route::get('/kategori', [ShopController::class, 'categories'])->name('shop.categories');
+    Route::get('/kategori/{kategoriId}', [ShopController::class, 'category'])->name('shop.category')->whereNumber('kategoriId');
     Route::get('/produk/{barangId}', [ShopController::class, 'show'])->name('shop.show')->whereNumber('barangId');
 
     Route::get('/verifikasi-akun', [MemberVerificationController::class, 'create'])->name('member.verification.create');

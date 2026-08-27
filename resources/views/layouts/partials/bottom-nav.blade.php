@@ -3,11 +3,11 @@
     $cartN = (int) ($cartCount ?? 0);
 @endphp
 <nav class="bottom-nav" aria-label="Navigasi utama">
-    <a href="{{ route('shop.index') }}" class="bottom-nav__item {{ in_array($route, ['shop.index', 'shop.show'], true) ? 'is-active' : '' }}">
+    <a href="{{ route('shop.index') }}" class="bottom-nav__item {{ $route === 'shop.index' ? 'is-active' : '' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 4l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z"/></svg>
         <span>Beranda</span>
     </a>
-    <a href="{{ route('shop.index', ['kategori' => request('kategori')]) }}#kategori" class="bottom-nav__item">
+    <a href="{{ route('shop.categories') }}" class="bottom-nav__item {{ in_array($route, ['shop.categories', 'shop.category'], true) ? 'is-active' : '' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         <span>Kategori</span>
     </a>

@@ -99,4 +99,60 @@ class ShopController extends Controller
             'kategoriId' => $kategoriId,
         ]);
     }
+
+    public function categories(Request $request): View
+    {
+        try {
+            return view('shop.categories', [
+                'categories' => $this->catalog->categoriesFromPusat(null),
+                'cartCount' => $this->cart->count(),
+            ]);
+        } catch (QueryException $e) {
+            report($e);
+
+            return view('shop.unavailable', [
+                'cartCount' => $this->cart->count(),
+            ]);
+        }
+    }
+
+    public function category(Request $request, int $kategoriId): View
+    {
+        $user = $request->user();
+        $cabang = $this->memberContext->memberCabangId($user);
+        $tier = $this->pricing->tierForUser($user);
+        $search = $request->string('q')->toString() ?: null;
+        $perPage = (int) config('marketplace.products_per_page', 20);
+
+        try {
+            $category = $this->catalog->categoryById($kategoriId);
+            abort_unless($category, 404);
+
+            $products = $this->catalog->paginateProducts(
+                $cabang,
+                $tier,
+                $search,
+                $kategoriId,
+                $perPage,
+                'page',
+                null,
+                null,
+                $cabang
+            );
+
+            return view('shop.category', [
+                'category' => $category,
+                'products' => $products,
+                'cartCount' => $this->cart->count(),
+                'search' => $search,
+                'tierLabel' => $this->pricing->tierLabel($tier),
+            ]);
+        } catch (QueryException $e) {
+            report($e);
+
+            return view('shop.unavailable', [
+                'cartCount' => $this->cart->count(),
+            ]);
+        }
+    }
 }
