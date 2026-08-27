@@ -8,6 +8,7 @@ class MemberContextService
 {
     public function __construct(
         protected NumartCustomerService $customers,
+        protected NumartTokoService $toko,
     ) {}
 
     public function memberCabangId(?User $user): int
@@ -67,31 +68,16 @@ class MemberContextService
 
     public function branchWhatsApp(int $cabangId): string
     {
-        $branches = config('marketplace.branches', []);
-        $phone = trim((string) ($branches[$cabangId]['wa_phone'] ?? ''));
-
-        if ($phone === '') {
-            return trim((string) config('marketplace.default_branch_wa', ''));
-        }
-
-        return $phone;
+        return $this->toko->whatsAppForCabang($cabangId);
     }
 
     public function branchQrisUrl(int $cabangId): ?string
     {
-        $branches = config('marketplace.branches', []);
-        $path = trim((string) ($branches[$cabangId]['qris_image'] ?? ''));
-
-        if ($path === '') {
-            return null;
-        }
-
-        if (str_starts_with($path, 'http')) {
-            return $path;
-        }
+        return $this->toko->qrisUrlForCabang($cabangId);
+    }
 
     public function branchLabel(int $cabangId): string
     {
-        return $this->customers->cabangLabel($cabangId);
+        return $this->toko->branchLabel($cabangId);
     }
 }

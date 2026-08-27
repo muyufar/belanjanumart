@@ -77,7 +77,7 @@ BRANCH_TEGALREJO_RADIUS_KM=12
 3. **Katalog** — produk & stok hanya cabang pendaftaran member (`customer_cabang`).
 4. **Harga** — retail → `barang_harga_grosir_1`, grosir → `barang_harga_grosir_2`; harga umum dicoret jika lebih mahal.
 5. **Minimal belanja** — retail Rp 500.000, grosir Rp 1.000.000 (`MARKETPLACE_MIN_ORDER_*`).
-6. **Checkout** — COD (member terverifikasi) atau transfer (QRIS cabang + upload bukti + WA).
+6. **Checkout** — COD (member terverifikasi) atau transfer (QRIS & WA dari tabel `toko` Numart per `toko_cabang`, fallback `.env`).
 7. **Verifikasi** — login pertama upload KTP (+ foto usaha untuk grosir); admin setujui di `/admin/verifikasi-member`.
 
 ### Setup WA aktivasi

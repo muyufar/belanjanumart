@@ -22,7 +22,7 @@ return [
     'min_order_retail' => (int) env('MARKETPLACE_MIN_ORDER_RETAIL', 500_000),
     'min_order_grosir' => (int) env('MARKETPLACE_MIN_ORDER_GROSIR', 1_000_000),
 
-    /** WA cabang fallback jika wa_phone cabang kosong */
+    /** WA cabang fallback jika kolom toko_wa / toko_tlpn kosong di Numart */
     'default_branch_wa' => env('MARKETPLACE_DEFAULT_BRANCH_WA', ''),
 
     /** Ongkir — default 0 untuk pesanan member */
