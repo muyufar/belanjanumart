@@ -89,6 +89,43 @@ NUMART_ASSET_URL=https://demopos.numartmagelang.com/posgit
 | `https://belanja.numart.id/` | UI marketplace atau error Laravel (bukan 403/404 Hostinger) |
 | `https://belanja.numart.id/index.php` | Sama (boleh redirect ke `/`) |
 
+## Deployment Git gagal: `.htaccess` / `index.php` would be overwritten
+
+Pesan Hostinger:
+
+```text
+pull: error: The following untracked working tree files would be overwritten by merge:
+	.htaccess
+	index.php
+```
+
+**Penyebab:** Di folder deploy sudah ada `.htaccess` dan `index.php` (dibuat manual / upload), tapi **belum** masuk Git. Saat `git pull`, Git menolak menimpa file untracked.
+
+**Perbaikan (pilih satu):**
+
+### Via File Manager hPanel
+
+1. Buka folder deploy Git (biasanya `public_html` atau path yang di-set di menu GIT).
+2. **Hapus** file `.htaccess` dan `index.php` di **root folder repo** (bukan di `public/`).
+3. Kembali ke **Advanced → GIT** → **Deploy** lagi.
+
+File yang sama akan diambil dari repo GitHub (memang sengaja ada untuk Hostinger).
+
+### Via SSH
+
+```bash
+cd /path/ke/folder/deploy   # sesuaikan path di pengaturan GIT Hostinger
+rm -f .htaccess index.php
+git pull origin main
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan storage:link
+```
+
+Lalu **Deploy** ulang dari hPanel jika perlu.
+
+> Jangan hapus `public/.htaccess` dan `public/index.php` — itu entry point Laravel.
+
 ## Masih 403?
 
 - File Manager: apakah `vendor/` ada? (tanpa ini PHP bisa gagal)
