@@ -39,7 +39,7 @@ class ShopController extends Controller
 
         return view('shop.index', [
             'products' => $products,
-            'categories' => $this->catalog->categories($cabang),
+            'categories' => $this->catalog->categoriesFromPusat(),
             'latestProducts' => $showHomeSections ? $this->catalog->latestProducts($cabang, $tier, null, $cabang) : collect(),
             'bestSellers' => $showHomeSections ? $this->catalog->bestSellingProducts($cabang, $tier, null, $cabang) : collect(),
             'discounted' => $showHomeSections ? $this->catalog->discountedProducts($cabang, $tier, null, $cabang) : collect(),

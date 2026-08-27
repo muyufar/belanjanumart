@@ -39,6 +39,12 @@ class CatalogService
         );
     }
 
+    /** Kategori master selalu dari cabang pusat (0). */
+    public function categoriesFromPusat(): Collection
+    {
+        return $this->categories((int) config('marketplace.catalog_cabang_display', 0));
+    }
+
     public function categories(int $cabangId = 0): Collection
     {
         return DB::connection('numart')
