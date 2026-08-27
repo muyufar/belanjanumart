@@ -3,7 +3,9 @@
     $hasImage = !empty($product?->image_url);
 @endphp
 <div class="product-card__img-wrap">
-    @if(!empty($product->has_discount))
+    @if(empty($product->in_stock))
+        <span class="product-card__badge product-card__badge--oos">Stok habis</span>
+    @elseif(!empty($product->has_discount))
         <span class="product-card__badge">Diskon</span>
     @endif
     @include('shop.partials.product-placeholder', ['product' => $product, 'hidden' => $hasImage])

@@ -113,7 +113,7 @@
 
     @if($products->isEmpty())
         <div class="panel" style="text-align:center;padding:32px 20px">
-            <p class="muted" style="margin:0">Produk tidak ditemukan atau stok habis.</p>
+            <p class="muted" style="margin:0">Produk tidak ditemukan.</p>
         </div>
     @else
         @include('shop.partials.product-grid', ['products' => $products])

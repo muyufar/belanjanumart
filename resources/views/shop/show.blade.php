@@ -36,14 +36,20 @@
         <p class="price" style="font-size:1.5rem;margin:0 0 8px">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
     @endif
     <p class="muted">Harga {{ $tierLabel }} · {{ $product->barang_kode }}</p>
+    @include('shop.partials.product-stock', ['product' => $product, 'class' => 'detail-stock'])
 
     <div class="sticky-cart-bar">
-        <form method="post" action="{{ route('cart.store') }}" class="add-cart-form" style="flex:1;margin:0">
-            @csrf
-            <input type="hidden" name="barang_id" value="{{ $product->barang_id }}">
-            <input type="number" name="qty" value="1" min="1" max="99" class="qty-input" aria-label="Jumlah">
-            <button type="submit" class="btn" style="flex:1">Tambah keranjang</button>
-        </form>
+        @if(!empty($product->in_stock))
+            @php $maxQty = min(99, max(1, (int) floor($product->stock))); @endphp
+            <form method="post" action="{{ route('cart.store') }}" class="add-cart-form" style="flex:1;margin:0">
+                @csrf
+                <input type="hidden" name="barang_id" value="{{ $product->barang_id }}">
+                <input type="number" name="qty" value="1" min="1" max="{{ $maxQty }}" class="qty-input" aria-label="Jumlah">
+                <button type="submit" class="btn" style="flex:1">Tambah keranjang</button>
+            </form>
+        @else
+            <button type="button" class="btn" style="flex:1" disabled>Stok habis</button>
+        @endif
     </div>
 
     @if($relatedProducts && $relatedProducts->total() > 0)

@@ -1,9 +1,10 @@
 <div class="grid">
     @foreach($products as $p)
-        <a href="{{ route('shop.show', $p->barang_id) }}" class="product-card">
+        <a href="{{ route('shop.show', $p->barang_id) }}" class="product-card {{ empty($p->in_stock) ? 'product-card--oos' : '' }}">
             @include('shop.partials.product-image', ['product' => $p])
             <div class="product-card__body">
                 <h3>{{ $p->barang_nama }}</h3>
+                @include('shop.partials.product-stock', ['product' => $p])
                 @if(!empty($p->price_original) && $p->price_original > $p->price)
                     <div class="product-card__price product-card__price--sale">Rp {{ number_format($p->price, 0, ',', '.') }}</div>
                     <div class="product-card__price-old">Rp {{ number_format($p->price_original, 0, ',', '.') }}</div>

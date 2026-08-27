@@ -260,21 +260,11 @@ class CatalogService
 
     protected function productsQuery(int $cabangId, ?string $search, ?int $kategoriId, ?int $excludeBarangId = null, ?int $memberCabang = null)
     {
-        $branchIds = $this->stockBranchIds($memberCabang);
-
         $q = DB::connection('numart')
             ->table('barang as b')
             ->leftJoin('kategori as k', 'k.kategori_id', '=', 'b.kategori_id')
             ->where('b.barang_cabang', $cabangId)
             ->where('b.barang_status', '1')
-            ->whereExists(function ($sub) use ($branchIds) {
-                $sub->select(DB::raw(1))
-                    ->from('barang as bx')
-                    ->whereColumn('bx.barang_kode', 'b.barang_kode')
-                    ->whereIn('bx.barang_cabang', $branchIds)
-                    ->where('bx.barang_status', '1')
-                    ->whereRaw('CAST(bx.barang_stock AS DECIMAL(12,2)) > 0');
-            })
             ->select([
                 'b.barang_id',
                 'b.barang_kode',
@@ -370,6 +360,7 @@ class CatalogService
         }
         $row->price_label = $this->pricing->tierLabel($tier);
         $row->stock = (float) ($row->barang_stock ?? 0);
+        $row->in_stock = $row->stock > 0;
         $row->image_url = $this->imageUrl($row->barang_gambar ?? null);
 
         return $row;
@@ -388,10 +379,6 @@ class CatalogService
             return null;
         }
 
-        if (! $this->hasStockForKode((string) $row->barang_kode, $memberCabang)) {
-            return null;
-        }
-
         $stocks = $this->stockTotalsByKode([(string) $row->barang_kode], $memberCabang);
         $row->barang_stock = $stocks[$row->barang_kode] ?? 0;
 
@@ -400,10 +387,6 @@ class CatalogService
 
     public function productByKode(int $cabangId, string $kode, int $tier, ?int $memberCabang = null): ?object
     {
-        if (! $this->hasStockForKode($kode, $memberCabang)) {
-            return null;
-        }
-
         $row = DB::connection('numart')
             ->table('barang')
             ->where('barang_kode', $kode)
