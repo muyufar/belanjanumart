@@ -22,8 +22,12 @@ class CatalogService
     ) {}
 
     /** @return list<int> */
-    public function stockBranchIds(): array
+    public function stockBranchIds(?int $memberCabang = null): array
     {
+        if ($memberCabang !== null) {
+            return [$memberCabang];
+        }
+
         $ids = config('marketplace.stock_branch_ids');
         if (is_array($ids) && $ids !== []) {
             return array_map('intval', $ids);
@@ -61,14 +65,15 @@ class CatalogService
         string $pageName = 'page',
         ?int $excludeBarangId = null,
         ?int $forcedOffset = null,
+        ?int $memberCabang = null,
     ): LengthAwarePaginator {
         $perPage = $perPage ?? (int) config('marketplace.products_per_page', 20);
-        $query = $this->productsQuery($cabangId, $search, $kategoriId, $excludeBarangId)
+        $query = $this->productsQuery($cabangId, $search, $kategoriId, $excludeBarangId, $memberCabang)
             ->orderBy('b.barang_nama');
 
         if ($forcedOffset !== null) {
             $total = (clone $query)->count();
-            $items = $this->fetchAndMapRows($query, $tier, $forcedOffset, $perPage);
+            $items = $this->fetchAndMapRows($query, $tier, $forcedOffset, $perPage, $memberCabang);
             $currentPage = (int) floor($forcedOffset / $perPage) + 1;
 
             return new LengthAwarePaginator(
@@ -80,20 +85,20 @@ class CatalogService
             );
         }
 
-        return $this->paginateFromQuery($query, $tier, $perPage, $pageName);
+        return $this->paginateFromQuery($query, $tier, $perPage, $pageName, $memberCabang);
     }
 
     /**
      * @param  list<string>  $kodes
      */
-    public function productsByKodes(int $cabangId, int $tier, array $kodes, int $limit = 12): Collection
+    public function productsByKodes(int $cabangId, int $tier, array $kodes, int $limit = 12, ?int $memberCabang = null): Collection
     {
         $kodes = array_values(array_filter(array_unique($kodes)));
         if ($kodes === []) {
             return collect();
         }
 
-        $query = $this->productsQuery($cabangId, null, null, null)
+        $query = $this->productsQuery($cabangId, null, null, null, $memberCabang)
             ->whereIn('b.barang_kode', $kodes);
 
         $rows = $query->get();
@@ -116,25 +121,25 @@ class CatalogService
         return $this->bestSellingProducts($cabangId, $tier, $limit);
     }
 
-    public function bestSellingProducts(int $cabangId, int $tier, ?int $limit = null): Collection
+    public function bestSellingProducts(int $cabangId, int $tier, ?int $limit = null, ?int $memberCabang = null): Collection
     {
         $limit = $limit ?? (int) config('marketplace.home_best_sellers_limit', 8);
-        $topKodes = $this->topSellingKodes($limit * 3);
+        $topKodes = $this->topSellingKodes($limit * 3, $memberCabang);
 
-        return $this->productsByKodes($cabangId, $tier, $topKodes, $limit);
+        return $this->productsByKodes($cabangId, $tier, $topKodes, $limit, $memberCabang);
     }
 
-    public function latestProducts(int $cabangId, int $tier, ?int $limit = null): Collection
+    public function latestProducts(int $cabangId, int $tier, ?int $limit = null, ?int $memberCabang = null): Collection
     {
         $limit = $limit ?? (int) config('marketplace.home_latest_limit', 8);
-        $query = $this->productsQuery($cabangId, null, null, null)
+        $query = $this->productsQuery($cabangId, null, null, null, $memberCabang)
             ->orderByDesc('b.barang_tanggal')
             ->orderByDesc('b.barang_id');
 
         $rows = $query->limit($limit)->get();
         $discountMap = $this->discounts->activeDiscountsByKode();
         $kodes = $rows->pluck('barang_kode')->all();
-        $stockTotals = $this->stockTotalsByKode($kodes);
+        $stockTotals = $this->stockTotalsByKode($kodes, $memberCabang);
 
         return $rows->map(function ($row) use ($tier, $discountMap, $stockTotals) {
             $row->barang_stock = $stockTotals[$row->barang_kode] ?? (float) $row->barang_stock;
@@ -149,12 +154,13 @@ class CatalogService
         ?string $search = null,
         ?int $perPage = null,
         string $pageName = 'page',
+        ?int $memberCabang = null,
     ): LengthAwarePaginator {
-        $query = $this->productsQuery($cabangId, $search, null, null)
+        $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang)
             ->orderByDesc('b.barang_tanggal')
             ->orderByDesc('b.barang_id');
 
-        return $this->paginateFromQuery($query, $tier, $perPage, $pageName);
+        return $this->paginateFromQuery($query, $tier, $perPage, $pageName, $memberCabang);
     }
 
     public function paginateBestSellingProducts(
@@ -163,34 +169,35 @@ class CatalogService
         ?string $search = null,
         ?int $perPage = null,
         string $pageName = 'page',
+        ?int $memberCabang = null,
     ): LengthAwarePaginator {
-        $salesSub = $this->salesByKodeSubquery();
-        $query = $this->productsQuery($cabangId, $search, null, null)
+        $salesSub = $this->salesByKodeSubquery($memberCabang);
+        $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang)
             ->joinSub($salesSub, 'bs', function ($join) {
                 $join->on('bs.barang_kode', '=', 'b.barang_kode');
             })
             ->orderByDesc('bs.sold_qty');
 
-        return $this->paginateFromQuery($query, $tier, $perPage, $pageName);
+        return $this->paginateFromQuery($query, $tier, $perPage, $pageName, $memberCabang);
     }
 
     /**
      * @return list<string>
      */
-    protected function topSellingKodes(int $limit): array
+    protected function topSellingKodes(int $limit, ?int $memberCabang = null): array
     {
-        return $this->salesByKodeSubquery()
+        return $this->salesByKodeSubquery($memberCabang)
             ->orderByDesc('sold_qty')
             ->limit($limit)
             ->pluck('barang_kode')
             ->all();
     }
 
-    protected function salesByKodeSubquery()
+    protected function salesByKodeSubquery(?int $memberCabang = null)
     {
         $days = (int) config('marketplace.best_sellers_days', 7);
         $since = now('Asia/Jakarta')->subDays($days)->toDateString();
-        $branchIds = $this->stockBranchIds();
+        $branchIds = $this->stockBranchIds($memberCabang);
 
         return DB::connection('numart')
             ->table('penjualan as pj')
@@ -201,13 +208,13 @@ class CatalogService
             ->selectRaw('bx.barang_kode as barang_kode, SUM(pj.barang_qty) as sold_qty');
     }
 
-    protected function paginateFromQuery($query, int $tier, ?int $perPage, string $pageName): LengthAwarePaginator
+    protected function paginateFromQuery($query, int $tier, ?int $perPage, string $pageName, ?int $memberCabang = null): LengthAwarePaginator
     {
         $perPage = $perPage ?? (int) config('marketplace.products_per_page', 20);
         $total = (clone $query)->count();
         $currentPage = max(1, (int) Request::input($pageName, 1));
         $offset = ($currentPage - 1) * $perPage;
-        $items = $this->fetchAndMapRows($query, $tier, $offset, $perPage);
+        $items = $this->fetchAndMapRows($query, $tier, $offset, $perPage, $memberCabang);
 
         $paginator = new LengthAwarePaginator(
             $items,
@@ -225,7 +232,7 @@ class CatalogService
         );
     }
 
-    public function discountedProducts(int $cabangId, int $tier, ?int $limit = null): Collection
+    public function discountedProducts(int $cabangId, int $tier, ?int $limit = null, ?int $memberCabang = null): Collection
     {
         $limit = $limit ?? (int) config('marketplace.home_discount_limit', 8);
 
@@ -240,14 +247,14 @@ class CatalogService
 
         $kodes = $discountMap->keys()->take($limit * 3)->all();
 
-        return $this->productsByKodes($cabangId, $tier, $kodes, $limit)
+        return $this->productsByKodes($cabangId, $tier, $kodes, $limit, $memberCabang)
             ->filter(fn ($p) => $p->has_discount ?? false)
             ->values();
     }
 
-    protected function productsQuery(int $cabangId, ?string $search, ?int $kategoriId, ?int $excludeBarangId = null)
+    protected function productsQuery(int $cabangId, ?string $search, ?int $kategoriId, ?int $excludeBarangId = null, ?int $memberCabang = null)
     {
-        $branchIds = $this->stockBranchIds();
+        $branchIds = $this->stockBranchIds($memberCabang);
 
         $q = DB::connection('numart')
             ->table('barang as b')
@@ -297,7 +304,7 @@ class CatalogService
         return $q;
     }
 
-    protected function fetchAndMapRows($query, int $tier, int $offset, int $limit): Collection
+    protected function fetchAndMapRows($query, int $tier, int $offset, int $limit, ?int $memberCabang = null): Collection
     {
         $rows = (clone $query)
             ->offset($offset)
@@ -306,7 +313,7 @@ class CatalogService
 
         $discountMap = $this->discounts->activeDiscountsByKode();
         $kodes = $rows->pluck('barang_kode')->all();
-        $stockTotals = $this->stockTotalsByKode($kodes);
+        $stockTotals = $this->stockTotalsByKode($kodes, $memberCabang);
 
         return $rows->map(function ($row) use ($tier, $discountMap, $stockTotals) {
             $row->barang_stock = $stockTotals[$row->barang_kode] ?? (float) $row->barang_stock;
@@ -319,7 +326,7 @@ class CatalogService
      * @param  list<string>  $kodes
      * @return array<string, float>
      */
-    protected function stockTotalsByKode(array $kodes): array
+    protected function stockTotalsByKode(array $kodes, ?int $memberCabang = null): array
     {
         if ($kodes === []) {
             return [];
@@ -328,7 +335,7 @@ class CatalogService
         return DB::connection('numart')
             ->table('barang')
             ->whereIn('barang_kode', $kodes)
-            ->whereIn('barang_cabang', $this->stockBranchIds())
+            ->whereIn('barang_cabang', $this->stockBranchIds($memberCabang))
             ->where('barang_status', '1')
             ->groupBy('barang_kode')
             ->selectRaw('barang_kode, SUM(CAST(barang_stock AS DECIMAL(12,2))) as total_stock')
@@ -345,9 +352,16 @@ class CatalogService
         $priced = $this->discounts->applyDiscount($base, $disc);
 
         $row->price = $priced['price'];
-        $row->price_original = $priced['price_original'];
-        $row->has_discount = $priced['has_discount'];
-        $row->discount_label = $priced['discount_label'];
+        $compareUmum = $this->pricing->comparePrice($row, $tier);
+        if ($compareUmum !== null && (! $priced['has_discount'] || $compareUmum > $priced['price'])) {
+            $row->price_original = $compareUmum;
+            $row->has_discount = true;
+            $row->discount_label = null;
+        } else {
+            $row->price_original = $priced['price_original'];
+            $row->has_discount = $priced['has_discount'];
+            $row->discount_label = $priced['discount_label'];
+        }
         $row->price_label = $this->pricing->tierLabel($tier);
         $row->stock = (float) ($row->barang_stock ?? 0);
         $row->image_url = $this->imageUrl($row->barang_gambar ?? null);
@@ -355,7 +369,7 @@ class CatalogService
         return $row;
     }
 
-    public function product(int $cabangId, int $barangId, int $tier): ?object
+    public function product(int $cabangId, int $barangId, int $tier, ?int $memberCabang = null): ?object
     {
         $row = DB::connection('numart')
             ->table('barang')
@@ -368,19 +382,19 @@ class CatalogService
             return null;
         }
 
-        if (! $this->hasStockForKode((string) $row->barang_kode)) {
+        if (! $this->hasStockForKode((string) $row->barang_kode, $memberCabang)) {
             return null;
         }
 
-        $stocks = $this->stockTotalsByKode([(string) $row->barang_kode]);
+        $stocks = $this->stockTotalsByKode([(string) $row->barang_kode], $memberCabang);
         $row->barang_stock = $stocks[$row->barang_kode] ?? 0;
 
         return $this->mapProductRow($row, $tier);
     }
 
-    public function productByKode(int $cabangId, string $kode, int $tier): ?object
+    public function productByKode(int $cabangId, string $kode, int $tier, ?int $memberCabang = null): ?object
     {
-        if (! $this->hasStockForKode($kode)) {
+        if (! $this->hasStockForKode($kode, $memberCabang)) {
             return null;
         }
 
@@ -395,18 +409,18 @@ class CatalogService
             return null;
         }
 
-        $stocks = $this->stockTotalsByKode([$kode]);
+        $stocks = $this->stockTotalsByKode([$kode], $memberCabang);
         $row->barang_stock = $stocks[$kode] ?? 0;
 
         return $this->mapProductRow($row, $tier);
     }
 
-    public function hasStockForKode(string $kode): bool
+    public function hasStockForKode(string $kode, ?int $memberCabang = null): bool
     {
         return DB::connection('numart')
             ->table('barang')
             ->where('barang_kode', $kode)
-            ->whereIn('barang_cabang', $this->stockBranchIds())
+            ->whereIn('barang_cabang', $this->stockBranchIds($memberCabang))
             ->where('barang_status', '1')
             ->whereRaw('CAST(barang_stock AS DECIMAL(12,2)) > 0')
             ->exists();

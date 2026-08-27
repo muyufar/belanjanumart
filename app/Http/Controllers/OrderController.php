@@ -3,48 +3,53 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Services\Bri\BriPaymentService;
+use App\Services\BranchWhatsAppService;
 use App\Services\CheckoutService;
+use App\Services\MemberContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class OrderController extends Controller
 {
-    public function show(Order $order): View
+    public function __construct(
+        protected BranchWhatsAppService $whatsapp,
+        protected MemberContextService $memberContext,
+        protected CheckoutService $checkout,
+    ) {}
+
+    public function show(Request $request, Order $order): View
     {
-        $order->load(['items', 'payment']);
+        abort_unless($order->user_id === $request->user()?->id, 403);
+
+        $order->load(['items', 'user']);
 
         return view('orders.show', [
             'order' => $order,
             'cartCount' => 0,
+            'waOrderUrl' => $this->whatsapp->webUrlForOrder($order, 'order'),
+            'waProofUrl' => $this->whatsapp->webUrlForOrder($order, 'transfer_proof'),
+            'qrisUrl' => $this->memberContext->branchQrisUrl((int) $order->fulfillment_cabang),
         ]);
     }
 
-    public function checkPayment(Order $order, BriPaymentService $bri, CheckoutService $checkout): RedirectResponse
+    public function uploadProof(Request $request, Order $order): RedirectResponse
     {
-        $order->load('payment');
-        $payment = $order->payment;
+        abort_unless($order->user_id === $request->user()?->id, 403);
 
-        if (! $payment || $order->isPaid()) {
-            return redirect()->route('orders.show', $order);
+        $request->validate([
+            'payment_proof' => 'required|image|max:5120',
+        ]);
+
+        try {
+            $path = $request->file('payment_proof')->store('payments/proofs', 'public');
+            $this->checkout->submitPaymentProof($order, $path);
+
+            return redirect()
+                ->route('orders.show', $order)
+                ->with('success', 'Bukti transfer terupload. Kirim konfirmasi via WhatsApp ke cabang.');
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        if (config('bri.mock')) {
-            $checkout->markPaid($order);
-
-            return redirect()->route('orders.show', $order)->with('success', 'Pembayaran simulasi berhasil (mode mock).');
-        }
-
-        $status = $bri->checkStatus($payment);
-        $paid = ($status['data']['statusBayar'] ?? $status['statusBayar'] ?? '') === 'Y';
-
-        if ($paid) {
-            $checkout->markPaid($order);
-
-            return redirect()->route('orders.show', $order)->with('success', 'Pembayaran terkonfirmasi.');
-        }
-
-        return redirect()->route('orders.show', $order)->with('error', 'Pembayaran belum masuk. Coba lagi beberapa saat.');
     }
 }

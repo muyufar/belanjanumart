@@ -14,10 +14,6 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
-            'password.changed' => \App\Http\Middleware\EnsurePasswordChanged::class,
-        ]);
-        $middleware->appendToGroup('web', [
-            \App\Http\Middleware\EnsurePasswordChanged::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'api/webhooks/*',

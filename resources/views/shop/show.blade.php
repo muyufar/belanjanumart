@@ -26,7 +26,10 @@
     </div>
 
     <h1 class="detail-title">{{ $product->barang_nama }}</h1>
-    @if(!empty($product->has_discount) && $product->price_original)
+    @if(!empty($product->price_original) && $product->price_original > $product->price)
+        <p class="price price--sale" style="font-size:1.5rem;margin:0">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
+        <p class="price-old">Harga umum Rp {{ number_format($product->price_original, 0, ',', '.') }}</p>
+    @elseif(!empty($product->has_discount) && $product->price_original)
         <p class="price price--sale" style="font-size:1.5rem;margin:0">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
         <p class="price-old">Rp {{ number_format($product->price_original, 0, ',', '.') }} @if($product->discount_label)({{ $product->discount_label }})@endif</p>
     @else

@@ -19,7 +19,22 @@
                 <svg id="memberBarcode" class="digital-card__barcode"></svg>
             @endif
             <div class="digital-card__points">Total poin: <strong>{{ number_format($points, 0, ',', '.') }}</strong></div>
+            <div class="digital-card__meta" style="margin-top:8px">
+                Verifikasi:
+                @php
+                    $vStatus = auth()->user()->member_verification_status ?? 'none';
+                @endphp
+                <strong>{{ match($vStatus) {
+                    'approved' => 'Disetujui (COD aktif)',
+                    'pending' => 'Menunggu admin',
+                    'rejected' => 'Ditolak — upload ulang',
+                    default => 'Belum diverifikasi',
+                } }}</strong>
+            </div>
         </div>
+        @if(in_array(auth()->user()->member_verification_status ?? 'none', ['none', 'rejected'], true))
+            <a href="{{ route('member.verification.create') }}" class="btn block" style="margin-top:12px">Upload dokumen verifikasi</a>
+        @endif
         @auth
             <form method="post" action="{{ route('logout') }}" style="margin-top:12px">
                 @csrf
@@ -27,7 +42,7 @@
             </form>
         @endauth
     @else
-        <div class="panel"><p class="muted">Hubungkan akun dengan aktivasi nomor HP toko.</p></div>
+        <div class="panel"><p class="muted">Data customer Numart tidak ditemukan.</p></div>
     @endif
 
     <div class="section-head" style="margin-top:28px">

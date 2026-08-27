@@ -18,8 +18,15 @@ return [
     /** Menit reserve stok saat checkout */
     'stock_hold_minutes' => (int) env('MARKETPLACE_STOCK_HOLD_MINUTES', 15),
 
-    /** Ongkir flat tahap 1 (Rp) */
-    'default_shipping_fee' => (int) env('MARKETPLACE_SHIPPING_FEE', 10000),
+    /** Minimal pembelian (Rp) */
+    'min_order_retail' => (int) env('MARKETPLACE_MIN_ORDER_RETAIL', 500_000),
+    'min_order_grosir' => (int) env('MARKETPLACE_MIN_ORDER_GROSIR', 1_000_000),
+
+    /** WA cabang fallback jika wa_phone cabang kosong */
+    'default_branch_wa' => env('MARKETPLACE_DEFAULT_BRANCH_WA', ''),
+
+    /** Ongkir — default 0 untuk pesanan member */
+    'default_shipping_fee' => (int) env('MARKETPLACE_SHIPPING_FEE', 0),
 
     /**
      * Cabang fulfillment marketplace.
@@ -43,6 +50,8 @@ return [
             'lng' => (float) env('BRANCH_DUKUN_LNG', 110.3160),
             'radius_km' => (float) env('BRANCH_DUKUN_RADIUS_KM', 12),
             'priority' => 1,
+            'wa_phone' => env('BRANCH_DUKUN_WA', ''),
+            'qris_image' => env('BRANCH_DUKUN_QRIS', ''),
         ],
         5 => [
             'id' => 5,
@@ -52,6 +61,8 @@ return [
             'lng' => (float) env('BRANCH_TEGALREJO_LNG', 110.2400),
             'radius_km' => (float) env('BRANCH_TEGALREJO_RADIUS_KM', 12),
             'priority' => 2,
+            'wa_phone' => env('BRANCH_TEGALREJO_WA', ''),
+            'qris_image' => env('BRANCH_TEGALREJO_QRIS', ''),
         ],
     ],
 

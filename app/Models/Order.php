@@ -25,6 +25,9 @@ class Order extends Model
         'discount',
         'grand_total',
         'status',
+        'payment_method',
+        'payment_proof_path',
+        'payment_proof_at',
         'numart_invoice',
         'paid_at',
         'expires_at',
@@ -35,6 +38,7 @@ class Order extends Model
         return [
             'paid_at' => 'datetime',
             'expires_at' => 'datetime',
+            'payment_proof_at' => 'datetime',
             'customer_lat' => 'float',
             'customer_lng' => 'float',
         ];

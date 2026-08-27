@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\CartSessionService;
 use App\Services\CatalogService;
+use App\Services\MemberContextService;
 use App\Services\PricingService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -14,12 +15,14 @@ class ShopController extends Controller
         protected CatalogService $catalog,
         protected PricingService $pricing,
         protected CartSessionService $cart,
+        protected MemberContextService $memberContext,
     ) {}
 
     public function index(Request $request): View
     {
-        $cabang = (int) config('marketplace.catalog_cabang_display', 0);
-        $tier = $this->pricing->tierForUser($request->user());
+        $user = $request->user();
+        $cabang = $this->memberContext->memberCabangId($user);
+        $tier = $this->pricing->tierForUser($user);
         $search = $request->string('q')->toString() ?: null;
         $tipe = $request->string('tipe')->toString();
         $tipe = in_array($tipe, CatalogService::SPECIAL_TIPES, true) ? $tipe : null;
@@ -27,9 +30,9 @@ class ShopController extends Controller
         $perPage = (int) config('marketplace.products_per_page', 20);
 
         $products = match ($tipe) {
-            CatalogService::TIPE_TERBARU => $this->catalog->paginateLatestProducts($cabang, $tier, $search, $perPage),
-            CatalogService::TIPE_TERLARIS => $this->catalog->paginateBestSellingProducts($cabang, $tier, $search, $perPage),
-            default => $this->catalog->paginateProducts($cabang, $tier, $search, $kategoriId, $perPage),
+            CatalogService::TIPE_TERBARU => $this->catalog->paginateLatestProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
+            CatalogService::TIPE_TERLARIS => $this->catalog->paginateBestSellingProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
+            default => $this->catalog->paginateProducts($cabang, $tier, $search, $kategoriId, $perPage, 'page', null, null, $cabang),
         };
 
         $showHomeSections = ! $search && ! $kategoriId && ! $tipe && $products->currentPage() === 1;
@@ -37,12 +40,14 @@ class ShopController extends Controller
         return view('shop.index', [
             'products' => $products,
             'categories' => $this->catalog->categories($cabang),
-            'latestProducts' => $showHomeSections ? $this->catalog->latestProducts($cabang, $tier) : collect(),
-            'bestSellers' => $showHomeSections ? $this->catalog->bestSellingProducts($cabang, $tier) : collect(),
-            'discounted' => $showHomeSections ? $this->catalog->discountedProducts($cabang, $tier) : collect(),
+            'latestProducts' => $showHomeSections ? $this->catalog->latestProducts($cabang, $tier, null, $cabang) : collect(),
+            'bestSellers' => $showHomeSections ? $this->catalog->bestSellingProducts($cabang, $tier, null, $cabang) : collect(),
+            'discounted' => $showHomeSections ? $this->catalog->discountedProducts($cabang, $tier, null, $cabang) : collect(),
             'showHomeSections' => $showHomeSections,
             'tier' => $tier,
             'tierLabel' => $this->pricing->tierLabel($tier),
+            'minOrder' => $this->memberContext->minOrderAmount($tier),
+            'branchLabel' => $this->memberContext->branchLabel($cabang),
             'cartCount' => $this->cart->count(),
             'search' => $search,
             'kategoriId' => $kategoriId,
@@ -53,9 +58,10 @@ class ShopController extends Controller
 
     public function show(Request $request, int $barangId): View
     {
-        $cabang = (int) config('marketplace.catalog_cabang_display', 0);
-        $tier = $this->pricing->tierForUser($request->user());
-        $product = $this->catalog->product($cabang, $barangId, $tier);
+        $user = $request->user();
+        $cabang = $this->memberContext->memberCabangId($user);
+        $tier = $this->pricing->tierForUser($user);
+        $product = $this->catalog->product($cabang, $barangId, $tier, $cabang);
 
         abort_unless($product, 404);
 
@@ -70,7 +76,9 @@ class ShopController extends Controller
                 $kategoriId,
                 (int) config('marketplace.related_products_per_page', 12),
                 'rel_page',
-                (int) $product->barang_id
+                (int) $product->barang_id,
+                null,
+                $cabang
             );
         }
 

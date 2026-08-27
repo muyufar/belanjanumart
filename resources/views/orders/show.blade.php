@@ -10,9 +10,7 @@
 
     <div class="panel" style="margin-bottom:14px">
         <p class="muted" style="margin:0 0 6px">{{ $order->fulfillment_label }}</p>
-        @if($order->numart_invoice)
-            <p class="muted" style="margin:0">Invoice: <strong>{{ $order->numart_invoice }}</strong></p>
-        @endif
+        <p class="muted" style="margin:0">Metode: <strong>{{ strtoupper($order->payment_method) }}</strong></p>
     </div>
 
     <div class="panel">
@@ -28,20 +26,48 @@
         </div>
     </div>
 
-    @if($order->payment && !$order->isPaid())
-        <div class="va-box">
-            <div>Virtual Account BRI</div>
-            <div class="number">{{ $order->payment->virtual_account }}</div>
-            <div style="margin-top:8px;font-size:.85rem">Berlaku sampai {{ $order->expires_at?->timezone('Asia/Jakarta')->format('d M Y H:i') }}</div>
-        </div>
-        <form method="post" action="{{ route('orders.check-payment', $order) }}" style="margin-top:12px">
-            @csrf
-            <button type="submit" class="btn block">Cek pembayaran</button>
-        </form>
-        @if(config('bri.mock'))
-            <p class="muted" style="margin-top:8px;text-align:center">Mode mock: simulasi lunas.</p>
+    @if($order->payment_method === 'cod')
+        @if($waOrderUrl)
+            <a href="{{ $waOrderUrl }}" target="_blank" rel="noopener" class="btn block" style="margin-top:16px">
+                Kirim pesanan via WhatsApp
+            </a>
+        @else
+            <p class="toast toast--err" style="margin-top:16px">Nomor WhatsApp cabang belum dikonfigurasi.</p>
         @endif
-    @elseif($order->isPaid())
-        <div class="toast toast--ok" style="margin-top:16px">Pembayaran diterima. Pesanan diproses.</div>
+        <p class="muted" style="margin-top:8px;text-align:center;font-size:0.85rem">Admin cabang akan memproses pesanan dan mengirim nota via WhatsApp.</p>
+    @else
+        @if($qrisUrl)
+            <div class="panel" style="margin-top:16px;text-align:center">
+                <p style="font-weight:700;margin:0 0 8px">Scan QRIS — Rp {{ number_format($order->grand_total, 0, ',', '.') }}</p>
+                <img src="{{ $qrisUrl }}" alt="QRIS" style="max-width:260px;width:100%;border-radius:12px">
+            </div>
+        @else
+            <p class="toast toast--err" style="margin-top:16px">QRIS cabang belum dikonfigurasi di sistem.</p>
+        @endif
+
+        @if(in_array($order->status, ['pending_transfer', 'proof_submitted'], true))
+            @if($order->payment_proof_path)
+                <p class="muted" style="margin-top:12px;text-align:center">Bukti transfer sudah diupload.</p>
+            @else
+                <form method="post" action="{{ route('orders.upload-proof', $order) }}" enctype="multipart/form-data" style="margin-top:16px" class="panel">
+                    @csrf
+                    <div class="field">
+                        <label>Upload bukti transfer</label>
+                        <input type="file" name="payment_proof" accept="image/*" required>
+                    </div>
+                    <button type="submit" class="btn block">Upload bukti</button>
+                </form>
+            @endif
+
+            @if($waProofUrl && $order->payment_proof_path)
+                <a href="{{ $waProofUrl }}" target="_blank" rel="noopener" class="btn block" style="margin-top:12px">
+                    Kirim konfirmasi via WhatsApp
+                </a>
+            @elseif($waOrderUrl && !$order->payment_proof_path)
+                <a href="{{ $waOrderUrl }}" target="_blank" rel="noopener" class="btn block btn--ghost" style="margin-top:12px">
+                    Tanya cabang via WhatsApp
+                </a>
+            @endif
+        @endif
     @endif
 @endsection

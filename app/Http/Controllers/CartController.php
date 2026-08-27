@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\CartSessionService;
 use App\Services\CatalogService;
+use App\Services\MemberContextService;
 use App\Services\PricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,23 +16,28 @@ class CartController extends Controller
         protected CartSessionService $cart,
         protected CatalogService $catalog,
         protected PricingService $pricing,
+        protected MemberContextService $memberContext,
     ) {}
 
     public function index(Request $request): View
     {
+        $tier = $this->pricing->tierForUser($request->user());
+
         return view('cart.index', [
             'items' => $this->cart->all(),
             'subtotal' => $this->cart->subtotal(),
             'cartCount' => $this->cart->count(),
-            'tierLabel' => $this->pricing->tierLabel($this->pricing->tierForUser($request->user())),
+            'tierLabel' => $this->pricing->tierLabel($tier),
+            'minOrder' => $this->memberContext->minOrderAmount($tier),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $cabang = (int) config('marketplace.catalog_cabang_display', 0);
-        $tier = $this->pricing->tierForUser($request->user());
-        $product = $this->catalog->product($cabang, $request->integer('barang_id'), $tier);
+        $user = $request->user();
+        $cabang = $this->memberContext->memberCabangId($user);
+        $tier = $this->pricing->tierForUser($user);
+        $product = $this->catalog->product($cabang, $request->integer('barang_id'), $tier, $cabang);
 
         abort_unless($product, 404);
 

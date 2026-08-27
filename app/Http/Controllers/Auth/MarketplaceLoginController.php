@@ -3,81 +3,55 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\MemberContextService;
 use App\Services\NumartCustomerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 class MarketplaceLoginController extends Controller
 {
     public function __construct(
         protected NumartCustomerService $numartCustomers,
+        protected MemberContextService $memberContext,
     ) {}
 
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
+        if (Auth::check()) {
+            return redirect()->route('shop.index');
+        }
+
         return view('auth.login', ['cartCount' => 0]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'phone' => 'required|string|max:30',
-            'password' => 'required',
+            'card_number' => 'required|string|max:32',
         ]);
 
-        $user = $this->resolveUserForLogin($validated['phone']);
+        $customer = $this->numartCustomers->findByKartu($validated['card_number']);
 
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
-            $candidates = $this->numartCustomers->findCandidatesByPhone($validated['phone']);
-            $customer = $candidates->count() === 1 ? $candidates->first() : null;
-            if ($customer && ! $this->numartCustomers->userForCustomer((int) $customer->customer_id)) {
-                return back()
-                    ->withInput()
-                    ->withErrors(['phone' => 'Customer ditemukan di Numart tetapi belum diaktifkan.'])
-                    ->with('activate_hint', true);
-            }
-
-            return back()->withErrors(['phone' => 'Nomor HP atau password salah.'])->onlyInput('phone');
+        if (! $customer) {
+            return back()
+                ->withInput()
+                ->withErrors(['card_number' => 'Nomor kartu tidak ditemukan atau tidak aktif.']);
         }
 
-        if ($user->numart_customer_id) {
-            $customer = $this->numartCustomers->findById((int) $user->numart_customer_id);
-            if ($customer) {
-                $this->numartCustomers->applyCustomerToUser($user, $customer);
-            }
-        }
+        $user = $this->numartCustomers->loginOrCreateUserFromCustomer($customer);
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
-        if ($user->must_change_password) {
+        if ($this->memberContext->needsVerificationUpload($user)) {
             return redirect()
-                ->route('password.change')
-                ->with('success', 'Masuk berhasil. Ganti password sementara yang dikirim via WhatsApp.');
+                ->route('member.verification.create')
+                ->with('info', 'Lengkapi verifikasi akun untuk dapat menggunakan COD.');
         }
 
         return redirect()->intended(route('shop.index'));
-    }
-
-    protected function resolveUserForLogin(string $phone): ?\App\Models\User
-    {
-        $user = $this->numartCustomers->userForPhone($phone);
-        if ($user) {
-            return $user;
-        }
-
-        $normalized = $this->numartCustomers->normalizePhone($phone);
-        foreach ($this->numartCustomers->findCandidatesByPhone($phone) as $customer) {
-            $linked = $this->numartCustomers->userForCustomer((int) $customer->customer_id);
-            if ($linked && $this->numartCustomers->normalizePhone((string) $linked->phone) === $normalized) {
-                return $linked;
-            }
-        }
-
-        return null;
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -86,6 +60,6 @@ class MarketplaceLoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('shop.index');
+        return redirect()->route('login');
     }
 }

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\BranchWhatsAppService;
 use App\Services\CartSessionService;
 use App\Services\CheckoutService;
-use App\Services\FulfillmentService;
+use App\Services\MemberContextService;
 use App\Services\PricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,8 +16,8 @@ class CheckoutController extends Controller
     public function __construct(
         protected CartSessionService $cart,
         protected CheckoutService $checkout,
-        protected FulfillmentService $fulfillment,
         protected PricingService $pricing,
+        protected MemberContextService $memberContext,
     ) {}
 
     public function create(Request $request): View|RedirectResponse
@@ -25,16 +26,23 @@ class CheckoutController extends Controller
             return redirect()->route('shop.index')->with('error', 'Keranjang masih kosong.');
         }
 
-        $preview = $this->previewFulfillment($request);
+        $user = $request->user();
+        $tier = $this->pricing->tierForUser($user);
+        $subtotal = $this->cart->subtotal();
+        $minOrder = $this->memberContext->minOrderAmount($tier);
+        $cabang = $this->memberContext->memberCabangId($user);
 
         return view('checkout.create', [
             'items' => $this->cart->all(),
-            'subtotal' => $this->cart->subtotal(),
-            'shipping' => (int) config('marketplace.default_shipping_fee', 10000),
+            'subtotal' => $subtotal,
+            'shipping' => (int) config('marketplace.default_shipping_fee', 0),
             'cartCount' => $this->cart->count(),
-            'tierLabel' => $this->pricing->tierLabel($this->pricing->tierForUser($request->user())),
-            'preview' => $preview,
-            'user' => $request->user(),
+            'tierLabel' => $this->pricing->tierLabel($tier),
+            'minOrder' => $minOrder,
+            'canCod' => $this->memberContext->canUseCod($user),
+            'branchLabel' => $this->memberContext->branchLabel($cabang),
+            'user' => $user,
+            'belowMin' => $subtotal < $minOrder,
         ]);
     }
 
@@ -44,8 +52,7 @@ class CheckoutController extends Controller
             'name' => 'required|string|max:200',
             'phone' => 'required|string|max:30',
             'address' => 'required|string|max:1000',
-            'lat' => 'nullable|numeric',
-            'lng' => 'nullable|numeric',
+            'payment_method' => 'required|in:cod,transfer',
         ]);
 
         $cart = array_map(fn ($r) => [
@@ -58,38 +65,17 @@ class CheckoutController extends Controller
             return redirect()->route('shop.index');
         }
 
-        $validated['preview_cabang'] = (int) config('marketplace.catalog_cabang_display', 0);
-
-        if ($request->hasSession()) {
-            $request->session()->put('checkout_lat', $validated['lat'] ?? null);
-            $request->session()->put('checkout_lng', $validated['lng'] ?? null);
-        }
-
         try {
             $order = $this->checkout->placeOrder($validated, $cart, $request->user());
             $this->cart->clear();
 
-            return redirect()->route('orders.show', $order)->with('success', 'Pesanan dibuat. Silakan bayar via Virtual Account BRI.');
+            $message = $validated['payment_method'] === 'cod'
+                ? 'Pesanan COD dibuat. Kirim detail pesanan via WhatsApp ke cabang.'
+                : 'Pesanan transfer dibuat. Scan QRIS dan upload bukti pembayaran.';
+
+            return redirect()->route('orders.show', $order)->with('success', $message);
         } catch (\Throwable $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
-    }
-
-    protected function previewFulfillment(Request $request): array
-    {
-        $lines = array_map(fn ($r) => [
-            'barang_kode' => $r['barang_kode'],
-            'qty' => $r['qty'],
-            'konversi_isi' => 1,
-        ], $this->cart->all());
-
-        $lat = $request->hasSession() ? $request->session()->get('checkout_lat') : null;
-        $lng = $request->hasSession() ? $request->session()->get('checkout_lng') : null;
-
-        return $this->fulfillment->resolve(
-            $lat !== null && $lat !== '' ? (float) $lat : null,
-            $lng !== null && $lng !== '' ? (float) $lng : null,
-            $lines
-        );
     }
 }

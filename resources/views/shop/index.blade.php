@@ -21,9 +21,9 @@
 
     @if(!$search && !$kategoriId && !($tipe ?? null))
         <div class="hero-banner">
-            <span class="hero-banner__tag">Belanja online</span>
-            <h2>Produk segar &amp; harga {{ $tierLabel }}</h2>
-            <p>Flash sale, terbaru, dan terlaris — langsung dari gudang Numart.</p>
+            <span class="hero-banner__tag">{{ $branchLabel ?? 'Cabang member' }}</span>
+            <h2>Harga {{ $tierLabel }} · {{ $branchLabel ?? '' }}</h2>
+            <p>Minimal belanja Rp {{ number_format($minOrder ?? 0, 0, ',', '.') }} · COD setelah verifikasi admin.</p>
         </div>
     @endif
 

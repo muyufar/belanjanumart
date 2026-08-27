@@ -73,11 +73,12 @@ BRANCH_TEGALREJO_RADIUS_KM=12
 ## Fitur customer & katalog
 
 1. **Stok** — hanya produk yang punya stok &gt; 0 di gudang atau cabang toko (`MARKETPLACE_STOCK_BRANCH_IDS`, default `0,1,5`).
-2. **Registrasi** — data baru langsung ke tabel `customer` Numart, lalu aktivasi via WhatsApp.
-3. **Aktivasi / password** — Fonnte mengirim password sementara; setelah masuk wajib ganti password (`/ganti-password`).
-4. **Lupa password** — `/lupa-password`: masukkan HP → password baru via WhatsApp → masuk → ganti password.
-5. **Beranda** — Produk Terbaru (`barang_tanggal`), Produk Terlaris (penjualan `MARKETPLACE_BEST_SELLERS_DAYS` hari), flash sale (`marketplace_diskon`).
-6. **Profil** — riwayat invoice, total poin, kartu digital + barcode nomor kartu.
+2. **Login member** — nomor kartu (`customer_kartu`) saja, tanpa password/WA/Fonnte.
+3. **Katalog** — produk & stok hanya cabang pendaftaran member (`customer_cabang`).
+4. **Harga** — retail → `barang_harga_grosir_1`, grosir → `barang_harga_grosir_2`; harga umum dicoret jika lebih mahal.
+5. **Minimal belanja** — retail Rp 500.000, grosir Rp 1.000.000 (`MARKETPLACE_MIN_ORDER_*`).
+6. **Checkout** — COD (member terverifikasi) atau transfer (QRIS cabang + upload bukti + WA).
+7. **Verifikasi** — login pertama upload KTP (+ foto usaha untuk grosir); admin setujui di `/admin/verifikasi-member`.
 
 ### Setup WA aktivasi
 

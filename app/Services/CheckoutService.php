@@ -5,8 +5,6 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\StockHold;
-use App\Services\Bri\BriPaymentService;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -14,27 +12,34 @@ class CheckoutService
 {
     public function __construct(
         protected CatalogService $catalog,
-        protected FulfillmentService $fulfillment,
         protected PricingService $pricing,
-        protected BriPaymentService $bri,
+        protected MemberContextService $memberContext,
     ) {}
 
     /**
      * @param  array<int, array{barang_id: int, barang_kode: string, qty: int}>  $cart
      */
-    public function placeOrder(array $input, array $cart, ?\App\Models\User $user): Order
+    public function placeOrder(array $input, array $cart, \App\Models\User $user): Order
     {
         $tier = $this->pricing->tierForUser($user);
+        $cabang = $this->memberContext->memberCabangId($user);
+        $branchLabel = $this->memberContext->branchLabel($cabang);
+        $paymentMethod = (string) ($input['payment_method'] ?? 'transfer');
+
+        if (! in_array($paymentMethod, ['cod', 'transfer'], true)) {
+            throw new \InvalidArgumentException('Metode pembayaran tidak valid.');
+        }
+
+        if ($paymentMethod === 'cod' && ! $this->memberContext->canUseCod($user)) {
+            throw new \InvalidArgumentException('COD hanya untuk member terverifikasi. Gunakan transfer atau lengkapi verifikasi akun.');
+        }
+
         $lines = [];
         $subtotal = 0;
         $itemsPayload = [];
 
         foreach ($cart as $row) {
-            $product = $this->catalog->productByKode(
-                (int) ($input['preview_cabang'] ?? 0),
-                $row['barang_kode'],
-                $tier
-            );
+            $product = $this->catalog->productByKode($cabang, $row['barang_kode'], $tier, $cabang);
 
             if (! $product) {
                 throw new \InvalidArgumentException('Produk tidak ditemukan: '.$row['barang_kode']);
@@ -45,11 +50,10 @@ class CheckoutService
             $lineTotal = $unit * $qty;
             $subtotal += $lineTotal;
 
-            $lines[] = [
-                'barang_kode' => $row['barang_kode'],
-                'qty' => $qty,
-                'konversi_isi' => (int) ($product->satuan_isi_1 ?? 1),
-            ];
+            $need = $qty * (int) ($product->satuan_isi_1 ?? 1);
+            if ((float) $product->barang_stock < $need) {
+                throw new \InvalidArgumentException('Stok tidak cukup untuk '.$product->barang_nama);
+            }
 
             $itemsPayload[] = [
                 'product' => $product,
@@ -59,40 +63,26 @@ class CheckoutService
             ];
         }
 
-        $fulfillment = $this->fulfillment->resolve(
-            isset($input['lat']) ? (float) $input['lat'] : null,
-            isset($input['lng']) ? (float) $input['lng'] : null,
-            $lines
-        );
-
-        $cabang = (int) $fulfillment['cabang_id'];
-
-        foreach ($itemsPayload as $idx => $payload) {
-            $product = $this->catalog->productByKode($cabang, $lines[$idx]['barang_kode'], $tier);
-            if (! $product) {
-                throw new \InvalidArgumentException('Produk tidak tersedia di '.$fulfillment['label']);
-            }
-            $need = $payload['qty'] * (int) ($product->satuan_isi_1 ?? 1);
-            if ((float) $product->barang_stock < $need) {
-                throw new \InvalidArgumentException('Stok tidak cukup untuk '.$product->barang_nama);
-            }
-            $itemsPayload[$idx]['product'] = $product;
+        $minOrder = $this->memberContext->minOrderAmount($tier);
+        if ($subtotal < $minOrder) {
+            throw new \InvalidArgumentException(
+                'Minimal pembelian '.$this->pricing->tierLabel($tier).' Rp '.number_format($minOrder, 0, ',', '.')
+            );
         }
 
-        $shipping = (int) config('marketplace.default_shipping_fee', 10000);
+        $shipping = (int) config('marketplace.default_shipping_fee', 0);
         $grand = $subtotal + $shipping;
         $holdMinutes = (int) config('marketplace.stock_hold_minutes', 15);
         $expires = now()->addMinutes($holdMinutes);
+        $status = $paymentMethod === 'cod' ? 'pending_cod' : 'pending_transfer';
 
-        return DB::transaction(function () use ($input, $user, $tier, $fulfillment, $cabang, $subtotal, $shipping, $grand, $expires, $itemsPayload, $lines) {
+        return DB::transaction(function () use ($input, $user, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status) {
             $order = Order::create([
                 'order_number' => 'MP-'.strtoupper(Str::random(10)),
-                'user_id' => $user?->id,
+                'user_id' => $user->id,
                 'price_tier' => $tier,
                 'fulfillment_cabang' => $cabang,
-                'fulfillment_label' => $fulfillment['label'],
-                'customer_lat' => $input['lat'] ?? null,
-                'customer_lng' => $input['lng'] ?? null,
+                'fulfillment_label' => $branchLabel,
                 'customer_name' => $input['name'],
                 'customer_phone' => $input['phone'],
                 'customer_address' => $input['address'],
@@ -100,11 +90,12 @@ class CheckoutService
                 'shipping_fee' => $shipping,
                 'discount' => 0,
                 'grand_total' => $grand,
-                'status' => 'pending_payment',
+                'payment_method' => $paymentMethod,
+                'status' => $status,
                 'expires_at' => $expires,
             ]);
 
-            foreach ($itemsPayload as $idx => $payload) {
+            foreach ($itemsPayload as $payload) {
                 $p = $payload['product'];
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -128,30 +119,26 @@ class CheckoutService
                 ]);
             }
 
-            $this->bri->createVirtualAccount($order, $input['name']);
-
-            return $order->fresh(['items', 'payment']);
+            return $order->fresh(['items', 'user']);
         });
     }
 
-    public function markPaid(Order $order): Order
+    public function submitPaymentProof(Order $order, string $path): Order
     {
-        if ($order->isPaid()) {
-            return $order;
+        if ($order->payment_method !== 'transfer') {
+            throw new \InvalidArgumentException('Bukti transfer hanya untuk pesanan transfer.');
         }
 
-        $order->payment?->update([
-            'status' => 'paid',
-            'paid_at' => Carbon::now(),
-        ]);
+        if (! in_array($order->status, ['pending_transfer', 'proof_submitted'], true)) {
+            throw new \InvalidArgumentException('Pesanan tidak dapat menerima bukti transfer.');
+        }
 
         $order->update([
-            'status' => 'paid',
-            'paid_at' => Carbon::now(),
+            'payment_proof_path' => $path,
+            'payment_proof_at' => now(),
+            'status' => 'proof_submitted',
         ]);
 
-        app(NumartOrderSyncService::class)->syncPaidOrder($order);
-
-        return $order->fresh(['items', 'payment']);
+        return $order->fresh(['items', 'user']);
     }
 }

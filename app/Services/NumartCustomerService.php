@@ -180,11 +180,45 @@ class NumartCustomerService
 
     public function warungStatusFromCustomer(object $customer): string
     {
-        if ((int) ($customer->customer_category ?? 0) === 2) {
-            return 'approved';
+        return 'none';
+    }
+
+    public function findByKartu(string $kartu): ?object
+    {
+        $kartu = strtoupper(trim(preg_replace('/\s+/', '', $kartu) ?? ''));
+
+        if ($kartu === '') {
+            return null;
         }
 
-        return 'none';
+        return DB::connection('numart')
+            ->table('customer')
+            ->whereNotIn('customer_id', self::RESERVED_IDS)
+            ->where(function ($q) {
+                $this->applyActiveCustomerScope($q);
+            })
+            ->whereRaw('UPPER(TRIM(customer_kartu)) = ?', [$kartu])
+            ->first();
+    }
+
+    public function loginOrCreateUserFromCustomer(object $customer): User
+    {
+        $user = $this->userForCustomer((int) $customer->customer_id);
+
+        if (! $user) {
+            $user = User::create([
+                'name' => $customer->customer_nama,
+                'email' => $this->emailForUser($customer),
+                'password' => bcrypt(str()->random(32)),
+                'phone' => $this->normalizePhone((string) $customer->customer_tlpn),
+                'must_change_password' => false,
+            ]);
+        }
+
+        $user->member_card = strtoupper(trim((string) ($customer->customer_kartu ?? '')));
+        $user->member_cabang = (int) ($customer->customer_cabang ?? 0);
+
+        return $this->applyCustomerToUser($user, $customer);
     }
 
     public function emailForUser(object $customer, ?string $fallback = null): string
@@ -229,7 +263,8 @@ class NumartCustomerService
             'phone' => $this->normalizePhone((string) $customer->customer_tlpn),
             'address' => (string) ($customer->customer_alamat ?? ''),
             'price_tier' => $this->priceTierFromCustomer($customer),
-            'warung_verification_status' => $this->warungStatusFromCustomer($customer),
+            'member_card' => strtoupper(trim((string) ($customer->customer_kartu ?? ''))),
+            'member_cabang' => (int) ($customer->customer_cabang ?? 0),
         ]);
 
         if (! $user->email || str_ends_with($user->email, '@belanja.local')) {

@@ -16,6 +16,18 @@ class PricingService
         };
     }
 
+    public function comparePrice(object $barang, int $tier): ?int
+    {
+        $member = $this->unitPrice($barang, $tier);
+        $umum = (int) ($barang->barang_harga ?? 0);
+
+        if ($tier < 1 || $umum <= 0 || $member >= $umum) {
+            return null;
+        }
+
+        return $umum;
+    }
+
     public function tierLabel(int $tier): string
     {
         return match ($tier) {
@@ -31,14 +43,10 @@ class PricingService
             return 0;
         }
 
-        if ($user->price_tier === 2 && $user->warung_verification_status === 'approved') {
-            return 2;
-        }
-
-        if ($user->price_tier >= 1) {
-            return 1;
-        }
-
-        return 0;
+        return match ((int) $user->price_tier) {
+            2 => 2,
+            1 => 1,
+            default => 0,
+        };
     }
 }

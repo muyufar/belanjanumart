@@ -1,39 +1,24 @@
 @extends('layouts.app')
 
-@section('title', 'Masuk')
+@section('title', 'Masuk — '.config('marketplace.name'))
 
 @section('content')
-    <div class="auth-card">
-        <h1>Masuk</h1>
-        <p class="muted">Nomor HP terdaftar di Numart &amp; password akun online.</p>
+    <div class="panel" style="max-width:420px;margin:24px auto">
+        <h2 style="margin:0 0 8px;font-size:1.25rem">Masuk Member</h2>
+        <p class="muted" style="margin:0 0 20px">Gunakan nomor kartu member Numart (contoh: NUBLJ00000123).</p>
 
-        @if(session('activate_hint'))
-            <p class="toast toast--ok" style="margin:12px 0">
-                <a href="{{ route('activate') }}"><strong>Aktivasi akun</strong></a> untuk password pertama.
-            </p>
+        @if($errors->any())
+            <div class="toast toast--err" style="margin-bottom:12px">{{ $errors->first() }}</div>
         @endif
 
-        <form method="post" action="{{ route('login') }}" style="margin-top:20px">
+        <form method="post" action="{{ route('login') }}">
             @csrf
             <div class="field">
-                <label>No. HP / WhatsApp</label>
-                <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="08xxxxxxxxxx" required>
-                @error('phone')<span class="muted">{{ $message }}</span>@enderror
+                <label>Nomor kartu member</label>
+                <input type="text" name="card_number" required autofocus autocomplete="off"
+                       value="{{ old('card_number') }}" placeholder="NUBLJ00000000" style="text-transform:uppercase">
             </div>
-            <div class="field">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                    <label style="margin:0">Password</label>
-                    <a href="{{ route('password.forgot') }}" style="font-size:0.8rem;font-weight:600;color:var(--primary)">Lupa password?</a>
-                </div>
-                <input type="password" name="password" required>
-            </div>
-            <label class="muted" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="remember"> Ingat saya</label>
-            <button class="btn block" type="submit" style="margin-top:16px">Masuk</button>
+            <button class="btn block" type="submit">Masuk</button>
         </form>
     </div>
-    <p class="muted" style="text-align:center;margin-top:16px">
-        <a href="{{ route('password.forgot') }}">Lupa password</a> ·
-        <a href="{{ route('activate') }}">Aktivasi</a> ·
-        <a href="{{ route('register') }}">Daftar</a>
-    </p>
 @endsection

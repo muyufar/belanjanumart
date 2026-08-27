@@ -23,11 +23,18 @@ class User extends Authenticatable
         'email',
         'password',
         'numart_customer_id',
+        'member_card',
+        'member_cabang',
         'price_tier',
         'phone',
         'address',
         'warung_name',
         'warung_verification_status',
+        'member_verification_status',
+        'ktp_path',
+        'business_photo_path',
+        'verification_submitted_at',
+        'verification_reviewed_at',
         'must_change_password',
         'wa_password_sent_at',
     ];
@@ -54,6 +61,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'must_change_password' => 'boolean',
             'wa_password_sent_at' => 'datetime',
+            'verification_submitted_at' => 'datetime',
+            'verification_reviewed_at' => 'datetime',
         ];
     }
 }
