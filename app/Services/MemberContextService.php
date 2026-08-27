@@ -9,6 +9,7 @@ class MemberContextService
     public function __construct(
         protected NumartCustomerService $customers,
         protected NumartTokoService $toko,
+        protected MarketplaceSettingsService $settings,
     ) {}
 
     public function memberCabangId(?User $user): int
@@ -40,11 +41,7 @@ class MemberContextService
 
     public function minOrderAmount(int $tier): int
     {
-        return match ($tier) {
-            2 => (int) config('marketplace.min_order_grosir', 1_000_000),
-            1 => (int) config('marketplace.min_order_retail', 500_000),
-            default => 0,
-        };
+        return $this->settings->minOrderForTier($tier);
     }
 
     public function verificationStatusForUser(?User $user): string
