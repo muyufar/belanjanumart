@@ -26,17 +26,18 @@ class ShopController extends Controller
         $search = $request->string('q')->toString() ?: null;
         $tipe = $request->string('tipe')->toString();
         $tipe = in_array($tipe, CatalogService::SPECIAL_TIPES, true) ? $tipe : null;
-        $kategoriId = $tipe ? null : ($request->integer('kategori') ?: null);
+        $filters = CatalogProductFilters::fromRequest($request, $tipe);
+        $kategoriId = $tipe ? null : $filters->kategoriId;
         $perPage = (int) config('marketplace.products_per_page', 20);
 
         try {
             $products = match ($tipe) {
-                CatalogService::TIPE_TERBARU => $this->catalog->paginateLatestProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
-                CatalogService::TIPE_TERLARIS => $this->catalog->paginateBestSellingProducts($cabang, $tier, $search, $perPage, 'page', $cabang),
-                default => $this->catalog->paginateProducts($cabang, $tier, $search, $kategoriId, $perPage, 'page', null, null, $cabang),
+                CatalogService::TIPE_TERBARU => $this->catalog->paginateLatestProducts($cabang, $tier, $search, $perPage, 'page', $cabang, $filters),
+                CatalogService::TIPE_TERLARIS => $this->catalog->paginateBestSellingProducts($cabang, $tier, $search, $perPage, 'page', $cabang, $filters),
+                default => $this->catalog->paginateProducts($cabang, $tier, $search, $kategoriId, $perPage, 'page', null, null, $cabang, $filters),
             };
 
-            $showHomeSections = ! $search && ! $kategoriId && ! $tipe && $products->currentPage() === 1;
+            $showHomeSections = ! $search && ! $kategoriId && ! $tipe && ! $filters->isActive($tipe) && $products->currentPage() === 1;
 
             return view('shop.index', [
                 'products' => $products,
@@ -53,6 +54,7 @@ class ShopController extends Controller
                 'search' => $search,
                 'kategoriId' => $kategoriId,
                 'tipe' => $tipe,
+                'filters' => $filters,
                 'bestSellersDays' => (int) config('marketplace.best_sellers_days', 7),
             ]);
         } catch (\Throwable $e) {
@@ -127,6 +129,8 @@ class ShopController extends Controller
             $category = $this->catalog->categoryById($kategoriId);
             abort_unless($category, 404);
 
+            $filters = CatalogProductFilters::fromRequest($request, null, $kategoriId);
+
             $products = $this->catalog->paginateProducts(
                 $cabang,
                 $tier,
@@ -136,7 +140,8 @@ class ShopController extends Controller
                 'page',
                 null,
                 null,
-                $cabang
+                $cabang,
+                $filters
             );
 
             return view('shop.category', [
@@ -145,6 +150,7 @@ class ShopController extends Controller
                 'cartCount' => $this->cart->count(),
                 'search' => $search,
                 'tierLabel' => $this->pricing->tierLabel($tier),
+                'filters' => $filters,
             ]);
         } catch (\Throwable $e) {
             report($e);

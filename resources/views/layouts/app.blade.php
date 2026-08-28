@@ -46,14 +46,18 @@
 
         <main class="page @yield('page_class')">
             <div class="page__inner">
+                @yield('breadcrumb')
                 @yield('content')
             </div>
         </main>
 
         @include('layouts.partials.bottom-nav')
+        @include('layouts.partials.app-footer')
+        @include('layouts.partials.quick-view-modal')
     </div>
 </div>
 <script src="{{ asset('js/theme.js') }}" defer></script>
+<script src="{{ asset('js/quick-view.js') }}" defer></script>
 @stack('scripts')
 </body>
 </html>

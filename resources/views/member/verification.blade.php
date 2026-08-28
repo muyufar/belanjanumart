@@ -1,6 +1,15 @@
 @extends('layouts.app')
 
+@section('page_class', 'page--auth')
 @section('title', 'Verifikasi Akun')
+
+@section('breadcrumb')
+    @include('layouts.partials.breadcrumb', ['items' => [
+        ['label' => 'Beranda', 'url' => route('shop.index')],
+        ['label' => 'Profil', 'url' => route('profile.show')],
+        ['label' => 'Verifikasi'],
+    ]])
+@endsection
 
 @section('content')
     <div class="section-head">

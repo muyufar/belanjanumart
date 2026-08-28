@@ -92,10 +92,13 @@ class CatalogService
         ?int $excludeBarangId = null,
         ?int $forcedOffset = null,
         ?int $memberCabang = null,
+        ?CatalogProductFilters $filters = null,
     ): LengthAwarePaginator {
         $perPage = $perPage ?? (int) config('marketplace.products_per_page', 20);
-        $query = $this->productsQuery($cabangId, $search, $kategoriId, $excludeBarangId, $memberCabang)
-            ->orderBy('b.barang_nama');
+        $filters ??= new CatalogProductFilters;
+        $query = $this->productsQuery($cabangId, $search, $kategoriId, $excludeBarangId, $memberCabang);
+        $this->applyProductFilters($query, $filters, $memberCabang);
+        $this->applyProductSort($query, $filters, $tier, $memberCabang);
 
         if ($forcedOffset !== null) {
             $total = (clone $query)->count();
@@ -181,10 +184,12 @@ class CatalogService
         ?int $perPage = null,
         string $pageName = 'page',
         ?int $memberCabang = null,
+        ?CatalogProductFilters $filters = null,
     ): LengthAwarePaginator {
-        $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang)
-            ->orderByDesc('b.barang_tanggal')
-            ->orderByDesc('b.barang_id');
+        $filters ??= new CatalogProductFilters(sort: CatalogProductFilters::SORT_TERBARU);
+        $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang);
+        $this->applyProductFilters($query, $filters, $memberCabang);
+        $this->applyProductSort($query, $filters, $tier, $memberCabang);
 
         return $this->paginateFromQuery($query, $tier, $perPage, $pageName, $memberCabang);
     }
@@ -196,13 +201,20 @@ class CatalogService
         ?int $perPage = null,
         string $pageName = 'page',
         ?int $memberCabang = null,
+        ?CatalogProductFilters $filters = null,
     ): LengthAwarePaginator {
+        $filters ??= new CatalogProductFilters(sort: CatalogProductFilters::SORT_TERLARIS);
         $salesSub = $this->salesByKodeSubquery($memberCabang);
-        $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang)
-            ->joinSub($salesSub, 'bs', function ($join) {
+        $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang);
+        $this->applyProductFilters($query, $filters, $memberCabang);
+
+        if ($filters->sort === CatalogProductFilters::SORT_TERLARIS) {
+            $query->joinSub($salesSub, 'bs', function ($join) {
                 $join->on('bs.barang_kode', '=', 'b.barang_kode');
-            })
-            ->orderByDesc('bs.sold_qty');
+            })->orderByDesc('bs.sold_qty');
+        } else {
+            $this->applyProductSort($query, $filters, $tier, $memberCabang);
+        }
 
         return $this->paginateFromQuery($query, $tier, $perPage, $pageName, $memberCabang);
     }
@@ -318,6 +330,75 @@ class CatalogService
         }
 
         return $q;
+    }
+
+    protected function applyProductFilters($query, CatalogProductFilters $filters, ?int $memberCabang): void
+    {
+        if ($filters->stok === 'ada') {
+            $branchIds = $this->stockBranchIds($memberCabang);
+            $query->whereExists(function ($sub) use ($branchIds) {
+                $sub->from('barang as bs')
+                    ->whereColumn('bs.barang_kode', 'b.barang_kode')
+                    ->whereIn('bs.barang_cabang', $branchIds)
+                    ->where('bs.barang_status', '1')
+                    ->whereRaw('CAST(bs.barang_stock AS DECIMAL(12,2)) > 0');
+            });
+        } elseif ($filters->stok === 'habis') {
+            $branchIds = $this->stockBranchIds($memberCabang);
+            $query->whereNotExists(function ($sub) use ($branchIds) {
+                $sub->from('barang as bs')
+                    ->whereColumn('bs.barang_kode', 'b.barang_kode')
+                    ->whereIn('bs.barang_cabang', $branchIds)
+                    ->where('bs.barang_status', '1')
+                    ->whereRaw('CAST(bs.barang_stock AS DECIMAL(12,2)) > 0');
+            });
+        }
+
+        if ($filters->promo === 'diskon') {
+            if (! $this->discounts->tableExists()) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $kodes = $this->discounts->activeDiscountsByKode()->keys()->all();
+            if ($kodes === []) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $query->whereIn('b.barang_kode', $kodes);
+        }
+    }
+
+    protected function applyProductSort($query, CatalogProductFilters $filters, int $tier, ?int $memberCabang): void
+    {
+        match ($filters->sort) {
+            CatalogProductFilters::SORT_NAMA_DESC => $query->orderByDesc('b.barang_nama'),
+            CatalogProductFilters::SORT_HARGA_ASC => $query->orderBy($this->priceColumnForTier($tier)),
+            CatalogProductFilters::SORT_HARGA_DESC => $query->orderByDesc($this->priceColumnForTier($tier)),
+            CatalogProductFilters::SORT_TERBARU => $query->orderByDesc('b.barang_tanggal')->orderByDesc('b.barang_id'),
+            CatalogProductFilters::SORT_TERLARIS => $this->applyTerlarisSort($query, $memberCabang),
+            default => $query->orderBy('b.barang_nama'),
+        };
+    }
+
+    protected function priceColumnForTier(int $tier): string
+    {
+        return match ($tier) {
+            1 => 'b.barang_harga_grosir_1',
+            2 => 'b.barang_harga_grosir_2',
+            default => 'b.barang_harga',
+        };
+    }
+
+    protected function applyTerlarisSort($query, ?int $memberCabang): void
+    {
+        $salesSub = $this->salesByKodeSubquery($memberCabang);
+        $query->leftJoinSub($salesSub, 'bs_sort', function ($join) {
+            $join->on('bs_sort.barang_kode', '=', 'b.barang_kode');
+        })->orderByDesc('bs_sort.sold_qty')->orderBy('b.barang_nama');
     }
 
     protected function fetchAndMapRows($query, int $tier, int $offset, int $limit, ?int $memberCabang = null): Collection

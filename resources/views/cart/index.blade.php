@@ -3,6 +3,13 @@
 @section('title', 'Keranjang')
 @section('page_class', 'page--cart')
 
+@section('breadcrumb')
+    @include('layouts.partials.breadcrumb', ['items' => [
+        ['label' => 'Beranda', 'url' => route('shop.index')],
+        ['label' => 'Keranjang'],
+    ]])
+@endsection
+
 @section('content')
     <div class="section-head">
         <h2 style="margin:0;font-size:1.25rem">Keranjang</h2>

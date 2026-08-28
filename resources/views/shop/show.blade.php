@@ -3,6 +3,20 @@
 @section('title', $product->barang_nama)
 @section('page_class', 'page--detail')
 
+@section('breadcrumb')
+    @php
+        $crumbs = [
+            ['label' => 'Beranda', 'url' => route('shop.index')],
+        ];
+        if ($kategoriId && ! empty($product->kategori_nama)) {
+            $crumbs[] = ['label' => 'Kategori', 'url' => url('/kategori')];
+            $crumbs[] = ['label' => $product->kategori_nama, 'url' => url('/kategori/'.$kategoriId)];
+        }
+        $crumbs[] = ['label' => Str::limit($product->barang_nama, 48)];
+    @endphp
+    @include('layouts.partials.breadcrumb', ['items' => $crumbs])
+@endsection
+
 @section('content')
     <a href="{{ $kategoriId ? url('/kategori/'.$kategoriId) : route('shop.index') }}" class="detail-back">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>

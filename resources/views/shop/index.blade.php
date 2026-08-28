@@ -2,6 +2,20 @@
 
 @section('title', 'Belanja — '.config('marketplace.name'))
 
+@section('breadcrumb')
+    @if($search || $kategoriId || ($tipe ?? null))
+        @php
+            $crumbs = [['label' => 'Beranda', 'url' => route('shop.index')]];
+            if ($tipe ?? null) {
+                $crumbs[] = ['label' => ($tipe === 'terlaris' ? 'Terlaris' : 'Terbaru')];
+            } elseif ($search) {
+                $crumbs[] = ['label' => 'Cari: '.$search];
+            }
+        @endphp
+        @include('layouts.partials.breadcrumb', ['items' => $crumbs])
+    @endif
+@endsection
+
 @section('header_search')
     <form class="search-pill" method="get" action="{{ route('shop.index') }}">
         @if($kategoriId)
@@ -10,6 +24,9 @@
         @if($tipe ?? null)
             <input type="hidden" name="tipe" value="{{ $tipe }}">
         @endif
+        @foreach(($filters ?? null)?->queryParams('q') ?? [] as $key => $val)
+            <input type="hidden" name="{{ $key }}" value="{{ $val }}">
+        @endforeach
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
         <input type="search" name="q" value="{{ $search }}" placeholder="Cari produk, merek...">
         <button type="submit">Cari</button>
@@ -20,11 +37,12 @@
     @php $categoryIcons = app(\App\Services\CategoryIconService::class); @endphp
 
     @if(!$search && !$kategoriId && !($tipe ?? null))
-        <div class="hero-banner">
-            <span class="hero-banner__tag">{{ $branchLabel ?? 'Cabang member' }}</span>
-            <h2>Harga {{ $tierLabel }} · {{ $branchLabel ?? '' }}</h2>
-            <p>Minimal belanja Rp {{ number_format($minOrder ?? 0, 0, ',', '.') }} · COD setelah verifikasi admin.</p>
-        </div>
+        @include('shop.partials.hero-carousel', [
+            'tierLabel' => $tierLabel,
+            'branchLabel' => $branchLabel ?? 'Cabang member',
+            'minOrder' => $minOrder ?? 0,
+            'discounted' => $discounted ?? collect(),
+        ])
     @endif
 
     {{-- 1. Icon kategori --}}
@@ -59,7 +77,7 @@
     @if($showHomeSections ?? false)
         {{-- 2. Flash sale --}}
         @if(($discounted ?? collect())->isNotEmpty())
-            <section class="home-section">
+            <section class="home-section" id="flash-sale">
                 <div class="section-head">
                     <h2>Flash sale</h2>
                     <span class="muted" style="font-size:0.8rem;font-weight:600;color:var(--accent)">Diskon aktif</span>
@@ -99,24 +117,46 @@
             default => ($search || $kategoriId) ? 'Hasil pencarian' : 'Semua Produk',
         };
     @endphp
-    <div class="section-head">
-        <h2>{{ $listTitle }}</h2>
-        @if(($tipe ?? null) === 'terlaris')
-            <span class="muted" style="font-size:0.75rem;font-weight:600">{{ $bestSellersDays }} hari terakhir</span>
-        @endif
-        @guest
-            @if(!($tipe ?? null) && !($search || $kategoriId))
-                <a href="{{ route('register') }}">Daftar</a>
-            @endif
-        @endguest
-    </div>
 
-    @if($products->isEmpty())
-        <div class="panel" style="text-align:center;padding:32px 20px">
-            <p class="muted" style="margin:0">Produk tidak ditemukan.</p>
+    <div class="catalog-layout">
+        @include('shop.partials.product-filters', [
+            'filters' => $filters ?? null,
+            'formAction' => route('shop.index'),
+            'search' => $search,
+            'tipe' => $tipe ?? null,
+            'showCategory' => !($tipe ?? null),
+            'categories' => $categories,
+        ])
+
+        <div class="catalog-layout__main">
+            <div class="section-head">
+                <h2>{{ $listTitle }}</h2>
+                @if(($tipe ?? null) === 'terlaris')
+                    <span class="muted" style="font-size:0.75rem;font-weight:600">{{ $bestSellersDays }} hari terakhir</span>
+                @endif
+                @if($filters->isActive($tipe ?? null))
+                    <span class="catalog-filters__active-pill">Filter aktif</span>
+                @endif
+                @guest
+                    @if(!($tipe ?? null) && !($search || $kategoriId))
+                        <a href="{{ route('register') }}">Daftar</a>
+                    @endif
+                @endguest
+            </div>
+
+            @if($products->isEmpty())
+                <div class="panel" style="text-align:center;padding:32px 20px">
+                    <p class="muted" style="margin:0">Produk tidak ditemukan.</p>
+                </div>
+            @else
+                @include('shop.partials.product-grid', ['products' => $products])
+                @include('shop.partials.pagination', ['paginator' => $products])
+            @endif
         </div>
-    @else
-        @include('shop.partials.product-grid', ['products' => $products])
-        @include('shop.partials.pagination', ['paginator' => $products])
-    @endif
+    </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/hero-carousel.js') }}" defer></script>
+<script src="{{ asset('js/catalog-filters.js') }}" defer></script>
+@endpush

@@ -3,6 +3,13 @@
 @section('title', 'Kategori — '.config('marketplace.name'))
 @section('page_class', 'page--categories')
 
+@section('breadcrumb')
+    @include('layouts.partials.breadcrumb', ['items' => [
+        ['label' => 'Beranda', 'url' => route('shop.index')],
+        ['label' => 'Kategori'],
+    ]])
+@endsection
+
 @section('content')
     @php $categoryIcons = app(\App\Services\CategoryIconService::class); @endphp
 
