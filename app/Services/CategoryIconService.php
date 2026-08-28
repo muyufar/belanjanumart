@@ -16,41 +16,46 @@ class CategoryIconService
         ['from' => '#74B9FF', 'to' => '#0984E3', 'tone' => 'blue'],
     ];
 
-    /** @var list<array{keys: list<string>, icon: string}> */
+    /** @var list<array{keys: list<string>, emoji: string}> */
     private const RULES = [
-        ['keys' => ['air mineral', 'air '], 'icon' => 'water'],
-        ['keys' => ['alat listrik', 'listrik', 'lampu', 'lilin', 'kabel', 'elektronik'], 'icon' => 'bulb'],
-        ['keys' => ['aksesoris', 'asesoris', 'accessor', 'jam tangan'], 'icon' => 'watch'],
-        ['keys' => ['atk', 'alat tulis', 'pena', 'buku', 'perekat'], 'icon' => 'pencil'],
-        ['keys' => ['baterai'], 'icon' => 'battery'],
-        ['keys' => ['gas elpiji', 'gas '], 'icon' => 'gas'],
-        ['keys' => ['ice cream', 'es krim'], 'icon' => 'ice'],
-        ['keys' => ['jelly', 'puding'], 'icon' => 'dessert'],
-        ['keys' => ['bahan makanan', 'bahan pembuat', 'rempah', 'sembako', 'beras', 'mie', 'tepung', 'gula', 'minyak', 'bumbu'], 'icon' => 'rice'],
-        ['keys' => ['minuman', 'soda', 'jus', 'teh', 'kopi'], 'icon' => 'drink'],
-        ['keys' => ['snack', 'keripik', 'biskuit', 'coklat', 'permen', 'camilan'], 'icon' => 'snack'],
-        ['keys' => ['sabun', 'deterjen', 'cuci', 'pembersih', 'kebersihan'], 'icon' => 'bottle'],
-        ['keys' => ['susu', 'yogurt', 'keju', 'dairy'], 'icon' => 'milk'],
-        ['keys' => ['daging', 'ayam', 'ikan', 'seafood'], 'icon' => 'meat'],
-        ['keys' => ['sayur', 'buah', 'segar', 'organik'], 'icon' => 'leaf'],
-        ['keys' => ['roti', 'kue', 'bakery'], 'icon' => 'bread'],
-        ['keys' => ['bayi', 'popok', 'diaper'], 'icon' => 'baby'],
-        ['keys' => ['kesehatan', 'obat', 'vitamin'], 'icon' => 'pill'],
-        ['keys' => ['kosmetik', 'shampo', 'skincare'], 'icon' => 'sparkle'],
-        ['keys' => ['frozen', 'beku'], 'icon' => 'ice'],
-        ['keys' => ['rumah tangga', 'plastik'], 'icon' => 'home'],
-        ['keys' => ['rokok'], 'icon' => 'box'],
+        ['keys' => ['air mineral', 'air '], 'emoji' => '💧'],
+        ['keys' => ['alat listrik', 'listrik', 'lampu', 'lilin', 'kabel', 'elektronik'], 'emoji' => '💡'],
+        ['keys' => ['aksesoris', 'asesoris', 'accessor', 'jam tangan'], 'emoji' => '⌚'],
+        ['keys' => ['atk', 'alat tulis', 'pena', 'buku', 'perekat'], 'emoji' => '✏️'],
+        ['keys' => ['baterai'], 'emoji' => '🔋'],
+        ['keys' => ['gas elpiji', 'gas '], 'emoji' => '⛽'],
+        ['keys' => ['ice cream', 'es krim'], 'emoji' => '🍦'],
+        ['keys' => ['jelly', 'puding'], 'emoji' => '🍮'],
+        ['keys' => ['bahan makanan', 'bahan pembuat', 'rempah', 'sembako', 'beras', 'mie', 'tepung', 'gula', 'minyak', 'bumbu'], 'emoji' => '🍚'],
+        ['keys' => ['minuman', 'soda', 'jus', 'teh'], 'emoji' => '🥤'],
+        ['keys' => ['kopi'], 'emoji' => '☕'],
+        ['keys' => ['snack', 'keripik', 'kerupuk', 'biskuit', 'coklat', 'permen', 'camilan'], 'emoji' => '🍿'],
+        ['keys' => ['sabun', 'deterjen', 'det bubuk', 'cuci', 'pembersih', 'kebersihan'], 'emoji' => '🧴'],
+        ['keys' => ['bodycare', 'kosmetik', 'shampo', 'skincare'], 'emoji' => '💄'],
+        ['keys' => ['susu', 'yogurt', 'keju', 'dairy'], 'emoji' => '🥛'],
+        ['keys' => ['daging', 'ayam', 'ikan', 'seafood'], 'emoji' => '🍗'],
+        ['keys' => ['sayur', 'buah', 'segar', 'organik'], 'emoji' => '🥬'],
+        ['keys' => ['roti', 'kue', 'bakery'], 'emoji' => '🍞'],
+        ['keys' => ['bayi', 'popok', 'diaper'], 'emoji' => '👶'],
+        ['keys' => ['kesehatan', 'obat', 'vitamin'], 'emoji' => '💊'],
+        ['keys' => ['frozen', 'beku'], 'emoji' => '🧊'],
+        ['keys' => ['rumah tangga', 'plastik'], 'emoji' => '🏠'],
+        ['keys' => ['infaq', 'sedekah'], 'emoji' => '🤲'],
+        ['keys' => ['rokok'], 'emoji' => '🚬'],
+        ['keys' => ['perkakas', 'alat '], 'emoji' => '🔧'],
     ];
 
     /**
-     * @return array{kind: string, icon?: string, letter?: string, from: string, to: string, tone: string}
+     * @return array{kind: string, emoji?: string, letter?: string, accent: string, from: string, to: string, tone: string}
      */
     public function forAll(): array
     {
         $palette = self::PALETTES[0];
 
         return [
-            'kind' => 'grid',
+            'kind' => 'emoji',
+            'emoji' => '🛍️',
+            'accent' => $palette['from'],
             'from' => $palette['from'],
             'to' => $palette['to'],
             'tone' => 'all',
@@ -58,19 +63,19 @@ class CategoryIconService
     }
 
     /**
-     * @return array{kind: string, icon?: string, letter?: string, from: string, to: string, tone: string}
+     * @return array{kind: string, emoji?: string, letter?: string, accent: string, from: string, to: string, tone: string}
      */
     public function forProductType(string $tipe): array
     {
         return match ($tipe) {
-            'terbaru' => $this->iconVisual(0, 'sparkle', 'terbaru'),
-            'terlaris' => $this->iconVisual(0, 'fire', 'terlaris'),
+            'terbaru' => $this->emojiVisual(0, '✨', 'terbaru'),
+            'terlaris' => $this->emojiVisual(0, '🔥', 'terlaris'),
             default => $this->forAll(),
         };
     }
 
     /**
-     * @return array{kind: string, icon?: string, letter?: string, from: string, to: string, tone: string}
+     * @return array{kind: string, emoji?: string, letter?: string, accent: string, from: string, to: string, tone: string}
      */
     public function forCategory(object $category): array
     {
@@ -81,7 +86,7 @@ class CategoryIconService
         foreach (self::RULES as $rule) {
             foreach ($rule['keys'] as $key) {
                 if (str_contains($normalized, $key)) {
-                    return $this->iconVisual($id, $rule['icon'], $key);
+                    return $this->emojiVisual($id, $rule['emoji'], $key);
                 }
             }
         }
@@ -91,6 +96,7 @@ class CategoryIconService
         return [
             'kind' => 'letter',
             'letter' => mb_strtoupper(mb_substr($name, 0, 1)),
+            'accent' => $palette['from'],
             'from' => $palette['from'],
             'to' => $palette['to'],
             'tone' => $palette['tone'],
@@ -98,15 +104,16 @@ class CategoryIconService
     }
 
     /**
-     * @return array{kind: string, icon: string, from: string, to: string, tone: string}
+     * @return array{kind: string, emoji: string, accent: string, from: string, to: string, tone: string}
      */
-    protected function iconVisual(int $id, string $icon, string $seed): array
+    protected function emojiVisual(int $id, string $emoji, string $seed): array
     {
         $palette = $this->paletteFor($id, $seed);
 
         return [
-            'kind' => 'icon',
-            'icon' => $icon,
+            'kind' => 'emoji',
+            'emoji' => $emoji,
+            'accent' => $palette['from'],
             'from' => $palette['from'],
             'to' => $palette['to'],
             'tone' => $palette['tone'],
