@@ -437,7 +437,7 @@ a { color: inherit; text-decoration: none; }
     background: linear-gradient(145deg, #1e4d3a 0%, #1a3d5c 50%, #3d2e6b 100%);
 }
 
-.cat-item span {
+.cat-item > span {
     font-size: 0.68rem;
     font-weight: 600;
     color: var(--muted);
@@ -446,7 +446,7 @@ a { color: inherit; text-decoration: none; }
     padding: 0 2px;
 }
 
-.cat-item.is-active span {
+.cat-item.is-active > span {
     color: var(--text);
     font-weight: 700;
 }
@@ -473,7 +473,7 @@ a { color: inherit; text-decoration: none; }
     font-size: 38px;
 }
 
-.cat-grid .cat-item span {
+.cat-grid .cat-item > span {
     font-size: 0.62rem;
     word-break: break-word;
 }
