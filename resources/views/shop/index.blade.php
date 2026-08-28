@@ -139,7 +139,7 @@
                 @endif
                 @guest
                     @if(!($tipe ?? null) && !($search || $kategoriId))
-                        <a href="{{ route('register') }}">Daftar</a>
+                        <a href="{{ route('login') }}">Daftar</a>
                     @endif
                 @endguest
             </div>

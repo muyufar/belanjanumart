@@ -28,7 +28,7 @@
             'title' => 'Daftar & nikmati harga khusus',
             'text' => 'Login dengan nomor kartu member untuk harga grosir dan poin belanja.',
             'cta' => 'Daftar sekarang',
-            'href' => route('register'),
+            'href' => route('login'),
         ];
     } elseif (! in_array(auth()->user()->member_verification_status ?? 'none', ['approved', 'pending'], true)) {
         $slides[] = [

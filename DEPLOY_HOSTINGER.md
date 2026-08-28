@@ -139,8 +139,9 @@ Penyebab umum:
    php artisan config:clear
    php artisan view:clear
    ```
-2. **File belum lengkap** — pastikan semua file baru ikut ter-upload (`CatalogProductFilters.php`, `desktop.css`, partial view, dll.).
-3. **Log Laravel** — buka `storage/logs/laravel.log` via File Manager / SSH untuk baris error terakhir.
+2. **Import hilang di `ShopController`** — log: `Class "App\Http\Controllers\CatalogProductFilters" not found`. Pastikan baris `use App\Services\CatalogProductFilters;` ada, lalu deploy ulang `app/Http/Controllers/ShopController.php`.
+3. **File belum lengkap** — pastikan `app/Services/CatalogProductFilters.php` dan partial view baru ikut ter-upload.
+4. **Log Laravel** — buka `storage/logs/laravel.log` via File Manager / SSH untuk baris error terakhir.
 
 Setelah perbaikan, jangan `route:cache` dulu sampai situs normal; tes `/` dan `/masuk` dulu.
 

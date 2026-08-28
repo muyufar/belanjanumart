@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CartSessionService;
+use App\Services\CatalogProductFilters;
 use App\Services\CatalogService;
 use App\Services\MemberContextService;
 use App\Services\PricingService;
