@@ -914,10 +914,19 @@
     }
 }
 
-/* Hide desktop-only elements on mobile */
-@media (max-width: 1023px) {
+/* Hide desktop-only elements on mobile & touch (incl. iPhone "Desktop Website") */
+@media (max-width: 1023px), (hover: none), (pointer: coarse) {
     .desktop-sidebar,
-    .desktop-topbar {
+    .desktop-topbar,
+    .product-card__quick,
+    .hero-carousel__arrow,
+    .catalog-filters,
+    .catalog-filters__active-pill,
+    .quick-view {
+        display: none !important;
+    }
+
+    .app-footer {
         display: none !important;
     }
 }

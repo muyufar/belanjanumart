@@ -266,11 +266,14 @@ a { color: inherit; text-decoration: none; }
 .hero-carousel {
     margin-bottom: 20px;
     position: relative;
+    width: 100%;
+    overflow: hidden;
 }
 
 .hero-carousel__track {
     display: flex;
-    gap: 12px;
+    gap: 0;
+    width: 100%;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
@@ -283,7 +286,10 @@ a { color: inherit; text-decoration: none; }
 
 .hero-slide {
     flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
     scroll-snap-align: start;
+    scroll-snap-stop: always;
     position: relative;
     border-radius: var(--radius-lg);
     padding: 22px 20px;
@@ -293,6 +299,7 @@ a { color: inherit; text-decoration: none; }
     display: flex;
     flex-direction: column;
     justify-content: center;
+    box-sizing: border-box;
 }
 
 .hero-slide::after {
@@ -410,7 +417,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .hero-carousel__arrow {
-    display: none;
+    display: none !important;
 }
 
 /* ── Footer (desktop-first visibility in desktop.css) ── */
@@ -842,7 +849,7 @@ body.quick-view-open {
 }
 
 .product-card__quick {
-    display: none;
+    display: none !important;
 }
 
 .product-card:active {
