@@ -9,56 +9,62 @@
         Kembali
     </a>
 
-    <div class="product-detail-media">
-        @include('shop.partials.product-placeholder', [
-            'product' => $product,
-            'hidden' => !empty($product->image_url),
-            'size' => 'detail',
-        ])
-        @if($product->image_url)
-            <img
-                src="{{ $product->image_url }}"
-                alt="{{ $product->barang_nama }}"
-                class="product-detail-img"
-                onerror="this.style.display='none';var p=this.previousElementSibling;if(p)p.classList.remove('product-placeholder--hidden');"
-            >
-        @endif
-    </div>
-
-    <h1 class="detail-title">{{ $product->barang_nama }}</h1>
-    @if(!empty($product->price_original) && $product->price_original > $product->price)
-        <p class="price price--sale" style="font-size:1.5rem;margin:0">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
-        <p class="price-old">Harga umum Rp {{ number_format($product->price_original, 0, ',', '.') }}</p>
-    @elseif(!empty($product->has_discount) && $product->price_original)
-        <p class="price price--sale" style="font-size:1.5rem;margin:0">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
-        <p class="price-old">Rp {{ number_format($product->price_original, 0, ',', '.') }} @if($product->discount_label)({{ $product->discount_label }})@endif</p>
-    @else
-        <p class="price" style="font-size:1.5rem;margin:0 0 8px">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
-    @endif
-    <p class="muted">Kode barang · {{ $product->barang_kode }}</p>
-    @include('shop.partials.product-stock', ['product' => $product, 'class' => 'detail-stock'])
-
-    <div class="sticky-cart-bar">
-        @if(!empty($product->in_stock))
-            @php $maxQty = min(99, max(1, (int) floor($product->stock))); @endphp
-            <form method="post" action="{{ route('cart.store') }}" class="add-cart-form" style="flex:1;margin:0">
-                @csrf
-                <input type="hidden" name="barang_id" value="{{ $product->barang_id }}">
-                <input type="number" name="qty" value="1" min="1" max="{{ $maxQty }}" class="qty-input" aria-label="Jumlah">
-                <button type="submit" class="btn" style="flex:1">Tambah keranjang</button>
-            </form>
-        @else
-            <button type="button" class="btn" style="flex:1" disabled>Stok habis</button>
-        @endif
-    </div>
-
-    @if($relatedProducts && $relatedProducts->total() > 0)
-        <section class="related-section">
-            <div class="section-head">
-                <h2 class="related-title" style="margin:0">Produk serupa</h2>
+    <div class="product-detail-layout">
+        <div class="product-detail-layout__media">
+            <div class="product-detail-media">
+                @include('shop.partials.product-placeholder', [
+                    'product' => $product,
+                    'hidden' => !empty($product->image_url),
+                    'size' => 'detail',
+                ])
+                @if($product->image_url)
+                    <img
+                        src="{{ $product->image_url }}"
+                        alt="{{ $product->barang_nama }}"
+                        class="product-detail-img"
+                        onerror="this.style.display='none';var p=this.previousElementSibling;if(p)p.classList.remove('product-placeholder--hidden');"
+                    >
+                @endif
             </div>
-            @include('shop.partials.product-grid', ['products' => $relatedProducts])
-            @include('shop.partials.pagination', ['paginator' => $relatedProducts])
-        </section>
-    @endif
+        </div>
+
+        <div class="product-detail-layout__info">
+            <h1 class="detail-title">{{ $product->barang_nama }}</h1>
+            @if(!empty($product->price_original) && $product->price_original > $product->price)
+                <p class="price price--sale" style="font-size:1.5rem;margin:0">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
+                <p class="price-old">Harga umum Rp {{ number_format($product->price_original, 0, ',', '.') }}</p>
+            @elseif(!empty($product->has_discount) && $product->price_original)
+                <p class="price price--sale" style="font-size:1.5rem;margin:0">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
+                <p class="price-old">Rp {{ number_format($product->price_original, 0, ',', '.') }} @if($product->discount_label)({{ $product->discount_label }})@endif</p>
+            @else
+                <p class="price" style="font-size:1.5rem;margin:0 0 8px">Rp {{ number_format($product->price, 0, ',', '.') }}</p>
+            @endif
+            <p class="muted">Kode barang · {{ $product->barang_kode }}</p>
+            @include('shop.partials.product-stock', ['product' => $product, 'class' => 'detail-stock'])
+
+            <div class="sticky-cart-bar">
+                @if(!empty($product->in_stock))
+                    @php $maxQty = min(99, max(1, (int) floor($product->stock))); @endphp
+                    <form method="post" action="{{ route('cart.store') }}" class="add-cart-form" style="flex:1;margin:0">
+                        @csrf
+                        <input type="hidden" name="barang_id" value="{{ $product->barang_id }}">
+                        <input type="number" name="qty" value="1" min="1" max="{{ $maxQty }}" class="qty-input" aria-label="Jumlah">
+                        <button type="submit" class="btn" style="flex:1">Tambah keranjang</button>
+                    </form>
+                @else
+                    <button type="button" class="btn" style="flex:1" disabled>Stok habis</button>
+                @endif
+            </div>
+        </div>
+
+        @if($relatedProducts && $relatedProducts->total() > 0)
+            <section class="related-section">
+                <div class="section-head">
+                    <h2 class="related-title" style="margin:0">Produk serupa</h2>
+                </div>
+                @include('shop.partials.product-grid', ['products' => $relatedProducts])
+                @include('shop.partials.pagination', ['paginator' => $relatedProducts])
+            </section>
+        @endif
+    </div>
 @endsection

@@ -25,26 +25,33 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/desktop.css') }}">
 </head>
 <body class="app-body">
-<div class="app-shell">
-    @hasSection('hide_header')
-    @else
-        @include('layouts.partials.app-header')
-    @endif
+<div class="app-layout">
+    @include('layouts.partials.desktop-sidebar')
 
-    @if(session('success'))
-        <div class="toast toast--ok" role="status">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="toast toast--err" role="alert">{{ session('error') }}</div>
-    @endif
+    <div class="app-shell">
+        @hasSection('hide_header')
+        @else
+            @include('layouts.partials.app-header')
+        @endif
 
-    <main class="page @yield('page_class')">
-        @yield('content')
-    </main>
+        @if(session('success'))
+            <div class="toast toast--ok" role="status">{{ session('success') }}</div>
+        @endif
+        @if(session('error'))
+            <div class="toast toast--err" role="alert">{{ session('error') }}</div>
+        @endif
 
-    @include('layouts.partials.bottom-nav')
+        <main class="page @yield('page_class')">
+            <div class="page__inner">
+                @yield('content')
+            </div>
+        </main>
+
+        @include('layouts.partials.bottom-nav')
+    </div>
 </div>
 <script src="{{ asset('js/theme.js') }}" defer></script>
 @stack('scripts')

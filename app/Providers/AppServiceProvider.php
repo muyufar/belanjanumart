@@ -21,6 +21,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        View::composer('layouts.app', MarketplaceComposer::class);
+        View::composer(['layouts.app', 'layouts.partials.bottom-nav', 'layouts.partials.desktop-sidebar'], MarketplaceComposer::class);
     }
 }

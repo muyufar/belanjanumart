@@ -1,5 +1,6 @@
 @extends('layouts.app')
 
+@section('page_class', 'page--auth')
 @section('title', 'Daftar')
 
 @section('content')

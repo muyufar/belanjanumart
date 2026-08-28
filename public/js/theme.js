@@ -26,7 +26,7 @@
 
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) {
-            meta.setAttribute('content', theme === 'dark' ? '#1a1f2e' : '#ffffff');
+            meta.setAttribute('content', theme === 'dark' ? '#1a1f2e' : '#1f5c38');
         }
     }
 
@@ -50,10 +50,12 @@
     initTheme();
 
     document.addEventListener('DOMContentLoaded', function () {
-        var btn = document.getElementById('themeToggle');
-        if (btn) {
-            btn.addEventListener('click', toggleTheme);
-        }
+        ['themeToggle', 'themeToggleDesktop'].forEach(function (id) {
+            var btn = document.getElementById(id);
+            if (btn) {
+                btn.addEventListener('click', toggleTheme);
+            }
+        });
     });
 
     if (window.matchMedia) {
