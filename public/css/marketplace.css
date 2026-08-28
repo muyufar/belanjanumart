@@ -417,28 +417,22 @@ a { color: inherit; text-decoration: none; }
 }
 
 .cat-grid .cat-item__icon {
-    width: 52px;
-    height: 52px;
+    width: 60px;
+    height: 60px;
 }
 
 .cat-grid .cat-item__glyph--emoji {
-    font-size: 26px;
+    font-size: 30px;
 }
 
 .cat-grid .cat-item__glyph--letter {
-    font-size: 20px;
+    font-size: 22px;
 }
 
 .cat-grid .cat-item > span {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     word-break: break-word;
     line-height: 1.25;
-}
-
-@media (min-width: 480px) {
-    .cat-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-    }
 }
 
 /* ── Product grid ── */
