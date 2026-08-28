@@ -408,7 +408,7 @@ a { color: inherit; text-decoration: none; }
 .cat-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 20px 12px;
+    gap: 22px 8px;
     padding-bottom: 8px;
 }
 
@@ -417,20 +417,22 @@ a { color: inherit; text-decoration: none; }
 }
 
 .cat-grid .cat-item__icon {
-    width: 60px;
-    height: 60px;
+    width: 76px;
+    height: 76px;
+    border-radius: 20px;
+    margin-bottom: 8px;
 }
 
 .cat-grid .cat-item__glyph--emoji {
-    font-size: 30px;
+    font-size: 40px;
 }
 
 .cat-grid .cat-item__glyph--letter {
-    font-size: 22px;
+    font-size: 30px;
 }
 
 .cat-grid .cat-item > span {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     word-break: break-word;
     line-height: 1.25;
 }
