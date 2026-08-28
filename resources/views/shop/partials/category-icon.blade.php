@@ -1,6 +1,6 @@
 @php
     $visual = $visual ?? [];
-    $kind = $visual['kind'] ?? 'emoji';
+    $kind = $visual['kind'] ?? 'icon';
     $from = $visual['from'] ?? '#5B8DEF';
     $to = $visual['to'] ?? '#7B5BEF';
     $tone = $visual['tone'] ?? 'default';
@@ -15,14 +15,6 @@
     @elseif($kind === 'letter')
         <span class="cat-item__mark cat-item__mark--letter" aria-hidden="true">{{ $visual['letter'] ?? '?' }}</span>
     @else
-        <img
-            class="cat-item__mark cat-item__mark--img"
-            src="{{ \App\Support\CategoryEmoji::twemojiUrl($visual['emoji'] ?? '🏪') }}"
-            width="40"
-            height="40"
-            alt=""
-            loading="lazy"
-            decoding="async"
-        >
+        @include('shop.partials.category-svg-icon', ['icon' => $visual['icon'] ?? 'box'])
     @endif
 </div>
