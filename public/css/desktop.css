@@ -661,6 +661,30 @@
         top: 24px;
     }
 
+    .page--cart .cart-row.panel {
+        grid-template-columns: 72px minmax(0, 1fr) auto;
+        gap: 20px;
+        padding: 20px;
+    }
+
+    .page--cart .cart-row__thumb {
+        width: 72px;
+        height: 72px;
+        border-radius: var(--radius);
+    }
+
+    .page--cart .cart-row__name {
+        font-size: 1rem;
+    }
+
+    .page--cart .cart-row__total {
+        font-size: 1.1rem;
+    }
+
+    .page--cart .cart-summary {
+        border-radius: var(--radius-lg);
+    }
+
     /* ── Auth / forms ── */
     .page--auth .page__inner {
         max-width: 480px;
