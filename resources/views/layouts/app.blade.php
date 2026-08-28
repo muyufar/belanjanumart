@@ -3,9 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#1f5c38">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>@yield('title', config('marketplace.name'))</title>
+    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('icon-512.png') }}">
     <script>
         (function () {
             try {
@@ -13,7 +17,7 @@
                 var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
                 var m = document.querySelector('meta[name="theme-color"]');
-                if (m) m.setAttribute('content', dark ? '#1a1f2e' : '#ffffff');
+                if (m) m.setAttribute('content', dark ? '#1a1f2e' : '#1f5c38');
             } catch (e) {}
         })();
     </script>
