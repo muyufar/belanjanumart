@@ -129,6 +129,21 @@ Lalu **Deploy** ulang dari hPanel jika perlu.
 
 > Jangan hapus `public/.htaccess` dan `public/index.php` — itu entry point Laravel.
 
+## Error 500 setelah deploy UI terbaru
+
+Penyebab umum:
+
+1. **Route cache stale** — route baru (mis. `register`, `shop.categories`) belum terdaftar:
+   ```bash
+   php artisan route:clear
+   php artisan config:clear
+   php artisan view:clear
+   ```
+2. **File belum lengkap** — pastikan semua file baru ikut ter-upload (`CatalogProductFilters.php`, `desktop.css`, partial view, dll.).
+3. **Log Laravel** — buka `storage/logs/laravel.log` via File Manager / SSH untuk baris error terakhir.
+
+Setelah perbaikan, jangan `route:cache` dulu sampai situs normal; tes `/` dan `/masuk` dulu.
+
 ## Masih 403?
 
 - File Manager: apakah `vendor/` ada? (tanpa ini PHP bisa gagal)

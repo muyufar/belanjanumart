@@ -15,7 +15,7 @@ Route::get('/masuk', [MarketplaceLoginController::class, 'create'])->name('login
 Route::post('/masuk', [MarketplaceLoginController::class, 'store']);
 Route::post('/keluar', [MarketplaceLoginController::class, 'destroy'])->name('logout');
 
-Route::redirect('/daftar', '/masuk');
+Route::redirect('/daftar', '/masuk')->name('register');
 Route::redirect('/aktivasi', '/masuk');
 Route::redirect('/lupa-password', '/masuk');
 Route::redirect('/ganti-password', '/masuk');
