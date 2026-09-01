@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Services\BranchWhatsAppService;
 use App\Services\CheckoutService;
 use App\Services\MemberContextService;
+use App\Services\OrderTrackingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,6 +17,7 @@ class OrderController extends Controller
         protected BranchWhatsAppService $whatsapp,
         protected MemberContextService $memberContext,
         protected CheckoutService $checkout,
+        protected OrderTrackingService $tracking,
     ) {}
 
     public function show(Request $request, Order $order): View
@@ -24,8 +26,14 @@ class OrderController extends Controller
 
         $order->load(['items', 'user']);
 
+        if ($order->numart_invoice) {
+            $order = $this->tracking->syncFromNumartInvoice($order);
+        }
+
         return view('orders.show', [
             'order' => $order,
+            'trackingSteps' => $this->tracking->timelineSteps($order),
+            'trackingLabel' => OrderTrackingService::label($order->tracking_status),
             'cartCount' => 0,
             'waOrderUrl' => $this->whatsapp->webUrlForOrder($order, 'order'),
             'waProofUrl' => $this->whatsapp->webUrlForOrder($order, 'transfer_proof'),

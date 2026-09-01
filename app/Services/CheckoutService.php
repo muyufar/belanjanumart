@@ -92,6 +92,8 @@ class CheckoutService
                 'grand_total' => $grand,
                 'payment_method' => $paymentMethod,
                 'status' => $status,
+                'tracking_status' => \App\Services\OrderTrackingService::AWAITING_PAYMENT,
+                'tracking_updated_at' => now(),
                 'expires_at' => $expires,
             ]);
 

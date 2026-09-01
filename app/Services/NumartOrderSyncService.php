@@ -115,6 +115,8 @@ class NumartOrderSyncService
         $order->update([
             'numart_invoice' => $invoiceNo,
             'status' => 'processing',
+            'tracking_status' => \App\Services\OrderTrackingService::PREPARING,
+            'tracking_updated_at' => now(),
         ]);
 
         return $invoiceNo;

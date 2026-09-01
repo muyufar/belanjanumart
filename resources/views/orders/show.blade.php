@@ -14,12 +14,18 @@
 @section('content')
     <div class="section-head">
         <h2 style="margin:0;font-size:1.15rem">{{ $order->order_number }}</h2>
-        <span class="tier-pill">{{ str_replace('_', ' ', $order->status) }}</span>
+        <span class="tier-pill">{{ $trackingLabel ?? str_replace('_', ' ', $order->status) }}</span>
     </div>
 
     <div class="order-layout">
         <div class="order-layout__main">
-            <div class="panel" style="margin-bottom:14px">
+            @include('orders.partials.tracking-timeline', [
+                'order' => $order,
+                'trackingSteps' => $trackingSteps,
+                'trackingLabel' => $trackingLabel,
+            ])
+
+            <div class="panel" style="margin-bottom:14px;margin-top:14px">
                 <p class="muted" style="margin:0 0 6px">{{ $order->fulfillment_label }}</p>
                 <p class="muted" style="margin:0">Metode: <strong>{{ strtoupper($order->payment_method) }}</strong></p>
             </div>

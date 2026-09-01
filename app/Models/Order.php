@@ -25,6 +25,9 @@ class Order extends Model
         'discount',
         'grand_total',
         'status',
+        'tracking_status',
+        'tracking_updated_at',
+        'tracking_note',
         'payment_method',
         'payment_proof_path',
         'payment_proof_at',
@@ -39,6 +42,7 @@ class Order extends Model
             'paid_at' => 'datetime',
             'expires_at' => 'datetime',
             'payment_proof_at' => 'datetime',
+            'tracking_updated_at' => 'datetime',
             'customer_lat' => 'float',
             'customer_lng' => 'float',
         ];
