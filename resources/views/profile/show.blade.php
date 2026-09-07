@@ -58,6 +58,41 @@
 
         <div class="profile-layout__history">
             <div class="section-head" style="margin-top:0">
+                <h2>Pesanan saya</h2>
+            </div>
+            @if($orders->isEmpty())
+                <div class="panel" style="margin-bottom:24px"><p class="muted" style="margin:0">Belum ada pesanan online.</p></div>
+            @else
+                <ul class="my-orders-list">
+                    @foreach($orders as $order)
+                        @php
+                            $trackKey = $order->tracking_status ?: \App\Services\OrderTrackingService::fromPaymentStatus($order->status);
+                            $trackLabel = \App\Services\OrderTrackingService::label($trackKey);
+                            $isActive = $trackKey !== \App\Services\OrderTrackingService::DELIVERED;
+                        @endphp
+                        <li>
+                            <a href="{{ route('orders.show', $order) }}" class="my-orders-list__item">
+                                <div class="my-orders-list__main">
+                                    <div class="my-orders-list__top">
+                                        <strong>{{ $order->order_number }}</strong>
+                                        <span class="my-orders-list__badge{{ $isActive ? ' my-orders-list__badge--active' : '' }}">{{ $trackLabel }}</span>
+                                    </div>
+                                    <div class="my-orders-list__meta muted">
+                                        {{ $order->created_at->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                                        · {{ $order->fulfillment_label }}
+                                    </div>
+                                </div>
+                                <div class="my-orders-list__side">
+                                    <span class="my-orders-list__total">Rp {{ number_format($order->grand_total, 0, ',', '.') }}</span>
+                                    <span class="my-orders-list__chev" aria-hidden="true">›</span>
+                                </div>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+
+            <div class="section-head">
                 <h2>Riwayat belanja</h2>
             </div>
             @if($history->isEmpty())

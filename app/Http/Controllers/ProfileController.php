@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Order;
 use App\Services\CartSessionService;
 use App\Services\MemberContextService;
 use App\Services\NumartCustomerService;
@@ -33,10 +34,17 @@ class ProfileController extends Controller
             }
         }
 
+        $orders = Order::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get();
+
         return view('profile.show', [
             'user' => $user,
             'customer' => $customer,
             'history' => $history,
+            'orders' => $orders,
             'points' => $points,
             'verificationStatus' => $this->memberContext->verificationStatusForUser($user),
             'cartCount' => $this->cart->count(),
