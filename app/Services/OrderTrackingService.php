@@ -111,6 +111,17 @@ class OrderTrackingService
             return $order;
         }
 
+        try {
+            return $this->applyNumartInvoice($order);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $order;
+        }
+    }
+
+    private function applyNumartInvoice(Order $order): Order
+    {
         $invoice = DB::connection('numart')
             ->table('invoice')
             ->leftJoin('user', 'user.user_id', '=', 'invoice.invoice_kurir')
@@ -133,6 +144,9 @@ class OrderTrackingService
         $note = null;
         if ($kurirId > 0 && ! empty($invoice->kurir_nama)) {
             $note = 'Kurir: '.$invoice->kurir_nama;
+        }
+        if ($statusKurir === 4) {
+            $note = $note ? $note.' — Pengiriman gagal' : 'Pengiriman gagal';
         }
 
         if ($order->tracking_status !== $trackingStatus

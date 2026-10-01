@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Services\CartSessionService;
 use App\Services\MemberContextService;
 use App\Services\NumartCustomerService;
+use App\Services\OrderTrackingService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -15,6 +16,7 @@ class ProfileController extends Controller
         protected NumartCustomerService $numartCustomers,
         protected MemberContextService $memberContext,
         protected CartSessionService $cart,
+        protected OrderTrackingService $tracking,
     ) {}
 
     public function show(Request $request): View
@@ -38,7 +40,14 @@ class ProfileController extends Controller
             ->where('user_id', $user->id)
             ->orderByDesc('id')
             ->limit(30)
-            ->get();
+            ->get()
+            ->map(function (Order $order) {
+                if ($order->numart_invoice && $order->tracking_status !== OrderTrackingService::DELIVERED) {
+                    return $this->tracking->syncFromNumartInvoice($order);
+                }
+
+                return $order;
+            });
 
         return view('profile.show', [
             'user' => $user,
