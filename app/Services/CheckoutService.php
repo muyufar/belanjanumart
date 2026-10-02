@@ -14,6 +14,7 @@ class CheckoutService
         protected CatalogService $catalog,
         protected PricingService $pricing,
         protected MemberContextService $memberContext,
+        protected ShippingService $delivery,
     ) {}
 
     /**
@@ -71,13 +72,31 @@ class CheckoutService
         }
 
         $shipping = (int) config('marketplace.default_shipping_fee', 0);
+        $quoteId = (int) ($input['shipping_quote_id'] ?? 0);
+        $shippingContext = null;
+        if ($this->delivery->required($cabang) || $quoteId > 0) {
+            if ($quoteId < 1) throw new \DomainException('Ajukan ongkir dan tunggu verifikasi admin sebelum membuat pesanan.');
+            $shippingContext = $this->delivery->context($cart, $user, $input);
+            if ($shippingContext['basket']['subtotal'] !== $subtotal) throw new \DomainException('Harga berubah. Muat ulang checkout.');
+            $costs = array_column($shippingContext['basket']['lines'], 'unit_cost', 'code');
+            foreach ($itemsPayload as &$payload) $payload['unit_cost'] = $costs[$payload['product']->barang_kode];
+            unset($payload);
+        }
         $grand = $subtotal + $shipping;
         $holdMinutes = (int) config('marketplace.stock_hold_minutes', 15);
         $expires = now()->addMinutes($holdMinutes);
         $status = $paymentMethod === 'cod' ? 'pending_cod' : 'pending_transfer';
 
-        return DB::transaction(function () use ($input, $user, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status) {
+        return DB::transaction(function () use ($input, $user, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext) {
+            $snapshot = null;
+            if ($shippingContext !== null) {
+                $snapshot = $this->delivery->engine()->consume($quoteId, $user->id, $cabang, $shippingContext['fingerprint']);
+                $shipping = $snapshot['money']['customer_fee'];
+                $grand = $subtotal + $shipping;
+            }
             $order = Order::create([
+                ...($snapshot === null ? [] : ['shipping_quote_id' => $quoteId, 'shipping_snapshot' => $snapshot,
+                    'customer_lat' => $snapshot['verified']['lat'], 'customer_lng' => $snapshot['verified']['lng']]),
                 'order_number' => 'MP-'.strtoupper(Str::random(10)),
                 'user_id' => $user->id,
                 'price_tier' => $tier,
@@ -107,7 +126,7 @@ class CheckoutService
                     'qty' => $payload['qty'],
                     'unit_price' => $payload['unit'],
                     'line_total' => $payload['line_total'],
-                    'harga_beli' => (int) $p->barang_harga_beli,
+                    'harga_beli' => $payload['unit_cost'] ?? (int) $p->barang_harga_beli,
                     'satuan_id' => (int) ($p->satuan_id ?? 0),
                     'konversi_isi' => (int) ($p->satuan_isi_1 ?? 1),
                 ]);
@@ -121,6 +140,7 @@ class CheckoutService
                 ]);
             }
 
+            if ($snapshot !== null) DB::table('shipping_quotes')->where('id', $quoteId)->update(['order_id' => $order->id]);
             return $order->fresh(['items', 'user']);
         });
     }

@@ -145,6 +145,31 @@ Penyebab umum:
 
 Setelah perbaikan, jangan `route:cache` dulu sampai situs normal; tes `/` dan `/masuk` dulu.
 
+## Pilot ongkir Nugrosir (2 Oktober 2026)
+
+Deploy perubahan POS dan Laravel bersama-sama. Mesin tarif POS `shared/NugrosirShipping.php`
+harus identik dengan `app/Support/NugrosirShipping.php` pada Laravel.
+Backup database belanja sebelum menjalankan:
+
+```bash
+php artisan migrate --force
+php artisan view:clear
+```
+
+Migrasi `2026_10_02_100000_shipping_pilot` menambahkan ledger penawaran/perjalanan dan
+snapshot pesanan. Default pilot **nonaktif**. Aktivasi dilakukan oleh admin cabang 0
+melalui POS → Belanja Online → Ongkir & perjalanan Nugrosir (`marketplace-ongkir`),
+setelah memverifikasi lokasi toko, biaya kendaraan, persetujuan mitra dan kategori QRIS.
+Periksa minimal pesanan lama jika ingin menerima belanja Rp50–100 ribu.
+
+Pilot berjalan 30 hari sejak aktivasi. Jeda tidak menghapus penawaran yang sudah
+disepakati. Tidak ada pemanggilan layanan peta atau notifikasi eksternal otomatis.
+Panduan operasi, rekonsiliasi dan batas pengujian tersedia di repo POS:
+`docs/ONGKIR_NUGROSIR.md`.
+
+Uji staging MySQL dan dua checkout bersamaan sebelum aktivasi umum. Jangan rollback
+migrasi yang sudah berisi transaksi tanpa mengarsipkan ledger.
+
 ## Masih 403?
 
 - File Manager: apakah `vendor/` ada? (tanpa ini PHP bisa gagal)

@@ -36,6 +36,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::post('/checkout/ongkir', [CheckoutController::class, 'requestShipping'])->middleware('throttle:10,1')->name('checkout.shipping');
+    Route::post('/checkout/ongkir/{quote}/batal', [CheckoutController::class, 'cancelShipping'])->whereNumber('quote')->name('checkout.shipping.cancel');
 
     Route::get('/pesanan/{order}', [OrderController::class, 'show'])->name('orders.show');
     Route::post('/pesanan/{order}/bukti-transfer', [OrderController::class, 'uploadProof'])->name('orders.upload-proof');

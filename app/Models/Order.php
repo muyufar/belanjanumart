@@ -11,6 +11,8 @@ class Order extends Model
 {
     protected $fillable = [
         'order_number',
+        'shipping_quote_id',
+        'shipping_snapshot',
         'user_id',
         'price_tier',
         'fulfillment_cabang',
@@ -39,6 +41,7 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'shipping_snapshot' => 'array',
             'paid_at' => 'datetime',
             'expires_at' => 'datetime',
             'payment_proof_at' => 'datetime',

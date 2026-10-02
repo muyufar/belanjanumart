@@ -12,6 +12,14 @@
 @endsection
 
 @section('content')
+    @if($order->shipping_snapshot)
+        @php($delivery = $order->shipping_snapshot)
+        <div class="panel" style="margin-bottom:16px">
+            <strong>{{ ['direct' => 'Kirim langsung', 'scheduled' => 'Hemat terjadwal', 'manual' => 'Pengiriman khusus'][$delivery['route']['service']] }}</strong>
+            <p>Estimasi diterima {{ \Carbon\Carbon::parse($delivery['route']['start'], 'UTC')->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}–{{ \Carbon\Carbon::parse($delivery['route']['end'], 'UTC')->timezone('Asia/Jakarta')->format('H:i') }} WIB.</p>
+            <p>Tarif Rp {{ number_format($delivery['money']['fare'], 0, ',', '.') }} · Subsidi toko Rp {{ number_format($delivery['money']['subsidy'], 0, ',', '.') }} · Ongkir dibayar Rp {{ number_format($order->shipping_fee, 0, ',', '.') }}.</p>
+        </div>
+    @endif
     <div class="section-head">
         <h2 style="margin:0;font-size:1.15rem">{{ $order->order_number }}</h2>
         <span class="tier-pill">{{ $trackingLabel ?? str_replace('_', ' ', $order->status) }}</span>
