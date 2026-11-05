@@ -22,20 +22,48 @@ class MarketplaceAccess
         return array_values(array_filter(array_map('trim', explode(',', $raw))));
     }
 
+    /** @return list<string> */
+    public static function superAdminCards(): array
+    {
+        $raw = (string) config('marketplace.super_admin_cards', '');
+
+        return array_values(array_filter(array_map(
+            static fn (string $c) => strtoupper(trim($c)),
+            explode(',', $raw)
+        )));
+    }
+
+    /** @return list<string> */
+    public static function adminCards(): array
+    {
+        $raw = (string) config('marketplace.admin_cards', '');
+
+        return array_values(array_filter(array_map(
+            static fn (string $c) => strtoupper(trim($c)),
+            explode(',', $raw)
+        )));
+    }
+
     public static function isSuperAdmin(?User $user): bool
     {
-        if (! $user?->email) {
+        if (! $user) {
             return false;
         }
 
-        $allowed = self::superAdminEmails();
+        $emails = self::superAdminEmails();
+        if ($emails !== [] && $user->email && in_array($user->email, $emails, true)) {
+            return true;
+        }
 
-        return $allowed !== [] && in_array($user->email, $allowed, true);
+        $cards = self::superAdminCards();
+        $kartu = strtoupper(trim((string) ($user->member_card ?? '')));
+
+        return $cards !== [] && $kartu !== '' && in_array($kartu, $cards, true);
     }
 
     public static function isAdmin(?User $user): bool
     {
-        if (! $user?->email) {
+        if (! $user) {
             return false;
         }
 
@@ -43,8 +71,14 @@ class MarketplaceAccess
             return true;
         }
 
-        $allowed = self::adminEmails();
+        $emails = self::adminEmails();
+        if ($emails !== [] && $user->email && in_array($user->email, $emails, true)) {
+            return true;
+        }
 
-        return $allowed !== [] && in_array($user->email, $allowed, true);
+        $cards = self::adminCards();
+        $kartu = strtoupper(trim((string) ($user->member_card ?? '')));
+
+        return $cards !== [] && $kartu !== '' && in_array($kartu, $cards, true);
     }
 }

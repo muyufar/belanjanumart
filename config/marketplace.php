@@ -111,6 +111,12 @@ return [
     /** Super admin — hanya role ini yang boleh mendaftarkan mitra kader */
     'super_admin_emails' => env('MARKETPLACE_SUPER_ADMIN_EMAILS', env('MARKETPLACE_ADMIN_EMAILS', '')),
 
+    /** Super admin by nomor kartu member (cocok dengan login /masuk) — pisah koma */
+    'super_admin_cards' => env('MARKETPLACE_SUPER_ADMIN_CARDS', ''),
+
+    /** Admin biasa by nomor kartu (opsional, selain email) */
+    'admin_cards' => env('MARKETPLACE_ADMIN_CARDS', ''),
+
     'affiliate' => [
         'commission_warung_percent' => (float) env('AFFILIATE_COMMISSION_WARUNG', 1.5),
         'commission_prioritas_percent' => (float) env('AFFILIATE_COMMISSION_PRIORITAS', 2.5),

@@ -22,10 +22,15 @@ class MarketplaceLoginController extends Controller
     public function create(): View|RedirectResponse
     {
         if (Auth::check()) {
-            return redirect()->route('shop.index');
+            return redirect()->intended(route('shop.index'));
         }
 
-        return view('auth.login', ['cartCount' => 0]);
+        $intended = session('url.intended', '');
+
+        return view('auth.login', [
+            'cartCount' => 0,
+            'adminLoginHint' => is_string($intended) && str_contains($intended, '/admin'),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse

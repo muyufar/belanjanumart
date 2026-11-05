@@ -8,6 +8,13 @@
         <h2 style="margin:0 0 8px;font-size:1.25rem">Masuk Member</h2>
         <p class="muted" style="margin:0 0 20px">Gunakan nomor kartu member Numart (contoh: NUBLJ00000123).</p>
 
+        @if(!empty($adminLoginHint))
+            <div class="toast toast--ok" style="margin-bottom:12px">
+                Anda meminta halaman admin. Masuk dengan kartu member yang terdaftar sebagai super admin di <code>.env</code>
+                (<code>MARKETPLACE_SUPER_ADMIN_CARDS</code> atau email super admin).
+            </div>
+        @endif
+
         @if($errors->any())
             <div class="toast toast--err" style="margin-bottom:12px">{{ $errors->first() }}</div>
         @endif

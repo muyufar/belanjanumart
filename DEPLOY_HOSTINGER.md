@@ -229,6 +229,9 @@ php artisan config:clear
 ```env
 MARKETPLACE_ADMIN_EMAILS=admin@example.com
 MARKETPLACE_SUPER_ADMIN_EMAILS=super@example.com
+# Lebih praktis untuk login kartu member (sama seperti /masuk):
+MARKETPLACE_SUPER_ADMIN_CARDS=NUBLJ00001234
+MARKETPLACE_ADMIN_CARDS=
 AFFILIATE_COMMISSION_WARUNG=1.5
 AFFILIATE_COMMISSION_PRIORITAS=2.5
 ```
