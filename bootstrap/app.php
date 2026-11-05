@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
             'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'affiliate_kader' => \App\Http\Middleware\EnsureAffiliateKader::class,
+            'backoffice' => \App\Http\Middleware\EnsureBackoffice::class,
             'numart.api' => \App\Http\Middleware\VerifyNumartApiSecret::class,
         ]);
         $middleware->validateCsrfTokens(except: [

@@ -16,6 +16,8 @@ class User extends Authenticatable
 
     public const ROLE_AFFILIATE_KADER = 'affiliate_kader';
 
+    public const ROLE_BACKOFFICE = 'backoffice';
+
     public const PARTNER_WARUNG = 'warung';
 
     public const PARTNER_PRIORITAS = 'prioritas';
@@ -106,6 +108,7 @@ class User extends Authenticatable
         return match ($this->partner_kind) {
             self::PARTNER_WARUNG => 'Mitra warung',
             self::PARTNER_PRIORITAS => 'Mitra prioritas',
+            'referral' => 'Member referral',
             default => null,
         };
     }

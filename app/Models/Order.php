@@ -14,6 +14,8 @@ class Order extends Model
         'shipping_quote_id',
         'shipping_snapshot',
         'user_id',
+        'placed_by_user_id',
+        'affiliate_referral_code',
         'price_tier',
         'fulfillment_cabang',
         'fulfillment_label',

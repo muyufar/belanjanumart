@@ -52,6 +52,18 @@
                 </div>
                 @if(auth()->user()?->isAffiliateKader() && auth()->user()->affiliate_active)
                     <a href="{{ route('affiliate.dashboard') }}" class="btn block" style="margin-top:12px">Panel Mitra Kader</a>
+                @elseif($customer && !auth()->user()->affiliate_kader_id && !auth()->user()->isAffiliateKader())
+                    <div class="panel" style="margin-top:12px;padding:14px">
+                        <p style="margin:0 0 8px;font-weight:700">Kode referral mitra kader</p>
+                        <p class="muted" style="margin:0 0 10px;font-size:0.85rem">Masukkan kode dari mitra kader. Belanja Anda memberi komisi dari margin bersih Numart.</p>
+                        <form method="post" action="{{ route('profile.referral.apply') }}">
+                            @csrf
+                            <div class="field" style="margin-bottom:8px">
+                                <input type="text" name="referral_code" placeholder="KDR-XXXXXX" required value="{{ old('referral_code') }}" style="text-transform:uppercase">
+                            </div>
+                            <button type="submit" class="btn secondary block">Hubungkan kode</button>
+                        </form>
+                    </div>
                 @endif
                 @if(in_array($verificationStatus ?? 'none', ['none', 'rejected'], true))
                     <a href="{{ route('member.verification.create') }}" class="btn block" style="margin-top:12px">Upload dokumen verifikasi</a>

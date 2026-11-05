@@ -71,6 +71,10 @@ class MarketplaceAccess
             return true;
         }
 
+        if ($user->marketplace_role === User::ROLE_BACKOFFICE) {
+            return true;
+        }
+
         $emails = self::adminEmails();
         if ($emails !== [] && $user->email && in_array($user->email, $emails, true)) {
             return true;
@@ -80,5 +84,11 @@ class MarketplaceAccess
         $kartu = strtoupper(trim((string) ($user->member_card ?? '')));
 
         return $cards !== [] && $kartu !== '' && in_array($kartu, $cards, true);
+    }
+
+    /** Staff backoffice (kelola affiliate, komisi, verifikasi). */
+    public static function isBackoffice(?User $user): bool
+    {
+        return self::isAdmin($user);
     }
 }

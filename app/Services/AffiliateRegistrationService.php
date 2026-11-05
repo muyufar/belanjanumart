@@ -151,6 +151,40 @@ class AffiliateRegistrationService
         return $user->fresh();
     }
 
+    public function applyReferralCode(User $user, string $code): User
+    {
+        $code = strtoupper(trim($code));
+
+        if ($code === '') {
+            throw new \InvalidArgumentException('Kode referral wajib diisi.');
+        }
+
+        if ($user->isAffiliateKader()) {
+            throw new \InvalidArgumentException('Mitra kader tidak dapat memakai kode referral.');
+        }
+
+        if ($user->affiliate_kader_id) {
+            throw new \InvalidArgumentException('Akun sudah terhubung ke mitra kader.');
+        }
+
+        $kader = User::query()
+            ->where('affiliate_code', $code)
+            ->where('marketplace_role', User::ROLE_AFFILIATE_KADER)
+            ->where('affiliate_active', true)
+            ->first();
+
+        if (! $kader) {
+            throw new \InvalidArgumentException('Kode referral tidak valid atau mitra kader nonaktif.');
+        }
+
+        $user->update([
+            'affiliate_kader_id' => $kader->id,
+            'partner_kind' => $user->partner_kind ?: 'referral',
+        ]);
+
+        return $user->fresh();
+    }
+
     protected function generateAffiliateCode(): string
     {
         do {

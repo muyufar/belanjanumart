@@ -28,9 +28,9 @@
             <small class="muted">{{ $totals['count_paid'] }} transaksi</small>
         </div>
         <div class="panel affiliate-stat">
-            <span class="muted">Tarif komisi aktif</span>
-            <strong>Warung {{ $settings['warung'] }}%</strong>
-            <small class="muted">Prioritas {{ $settings['prioritas'] }}% · basis {{ $settings['basis'] === 'grand_total' ? 'total bayar' : 'subtotal' }}</small>
+            <span class="muted">Bagi hasil margin bersih Numart</span>
+            <strong>{{ $settings['margin_share_min'] }}% – {{ $settings['margin_share_max'] }}%</strong>
+            <small class="muted">Dari margin bersih (subtotal − HPP), naik seiring margin lebih sehat</small>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
                     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
                         <div>
                             <strong>{{ $c->order?->order_number ?? 'Pesanan #'.$c->order_id }}</strong>
-                            <div class="muted" style="font-size:0.8rem">{{ $c->referredUser?->name }} · {{ $c->partner_kind === 'prioritas' ? 'Prioritas' : 'Warung' }}</div>
+                            <div class="muted" style="font-size:0.8rem">{{ $c->referredUser?->name }} · margin Rp {{ number_format($c->order_net_margin ?? 0, 0, ',', '.') }} · {{ $c->margin_share_percent ?? $c->commission_percent }}%</div>
                         </div>
                         <div style="text-align:right">
                             <div class="product-card__price">+ Rp {{ number_format($c->commission_amount, 0, ',', '.') }}</div>

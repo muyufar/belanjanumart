@@ -53,6 +53,34 @@
             <div class="panel">
                 <form method="post" action="{{ route('checkout.store') }}" id="checkout-form">
                     @csrf
+
+                    @if($affiliateMembers->isNotEmpty())
+                        <p style="font-weight:700;margin:0 0 8px">Belanja untuk</p>
+                        <label class="panel payment-option" style="display:block;margin-bottom:8px;cursor:pointer">
+                            <input type="radio" name="checkout_beneficiary" value="self" {{ old('checkout_beneficiary', 'self') === 'self' ? 'checked' : '' }}>
+                            <strong>Diri sendiri (mitra kader)</strong>
+                        </label>
+                        <label class="panel payment-option" style="display:block;margin-bottom:14px;cursor:pointer">
+                            <input type="radio" name="checkout_beneficiary" value="member" {{ old('checkout_beneficiary') === 'member' ? 'checked' : '' }}>
+                            <strong>Member affiliate saya</strong>
+                        </label>
+                        <div class="field" id="checkout-member-wrap" style="{{ old('checkout_beneficiary') === 'member' ? '' : 'display:none' }}">
+                            <label>Pilih member</label>
+                            <select name="beneficiary_user_id" id="beneficiary_user_id">
+                                <option value="">— Pilih member —</option>
+                                @foreach($affiliateMembers as $m)
+                                    <option value="{{ $m->id }}"
+                                            data-name="{{ $m->name }}"
+                                            data-phone="{{ $m->phone }}"
+                                            data-address="{{ $m->address }}"
+                                            @selected(old('beneficiary_user_id') == $m->id)>
+                                        {{ $m->name }} · {{ $m->member_card }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+
                     <div class="field">
                         <label>Nama penerima</label>
                         <input type="text" name="name" required value="{{ old('name', $quoteData['name'] ?? $user->name ?? '') }}">
@@ -150,4 +178,7 @@
 
 @push('scripts')
     <script src="{{ asset('js/checkout-gps.js') }}" defer></script>
+    @if($affiliateMembers->isNotEmpty())
+        <script src="{{ asset('js/checkout-beneficiary.js') }}" defer></script>
+    @endif
 @endpush

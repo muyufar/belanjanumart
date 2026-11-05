@@ -5,6 +5,10 @@ use App\Http\Controllers\Admin\AffiliateKaderAdminController;
 use App\Http\Controllers\Admin\MemberVerificationAdminController;
 use App\Http\Controllers\Admin\OrderAdminController;
 use App\Http\Controllers\Affiliate\AffiliateDashboardController;
+use App\Http\Controllers\Backoffice\AuthController as BackofficeAuthController;
+use App\Http\Controllers\Backoffice\AffiliateCommissionController as BackofficeAffiliateCommissionController;
+use App\Http\Controllers\Backoffice\AffiliateKaderController as BackofficeAffiliateKaderController;
+use App\Http\Controllers\Backoffice\DashboardController as BackofficeDashboardController;
 use App\Http\Controllers\Auth\MarketplaceLoginController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
@@ -46,6 +50,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/pesanan/{order}/bukti-transfer', [OrderController::class, 'uploadProof'])->name('orders.upload-proof');
 
     Route::get('/profil', [ProfileController::class, 'show'])->name('profile.show');
+    Route::post('/profil/kode-referral', [ProfileController::class, 'applyReferralCode'])->name('profile.referral.apply');
 
     Route::middleware('affiliate_kader')->prefix('mitra-kader')->name('affiliate.')->group(function () {
         Route::get('/', [AffiliateDashboardController::class, 'index'])->name('dashboard');
@@ -69,7 +74,24 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 });
 
 Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
-    Route::get('/affiliate/kader', [AffiliateKaderAdminController::class, 'index'])->name('admin.affiliate.kaders');
+    Route::redirect('/affiliate/kader', '/backoffice/affiliate/kader');
     Route::post('/affiliate/kader', [AffiliateKaderAdminController::class, 'store'])->name('admin.affiliate.kaders.store');
     Route::post('/affiliate/kader/{user}/toggle', [AffiliateKaderAdminController::class, 'toggleActive'])->name('admin.affiliate.kaders.toggle');
+});
+
+Route::prefix('backoffice')->name('backoffice.')->group(function () {
+    Route::get('/masuk', [BackofficeAuthController::class, 'create'])->name('login');
+    Route::post('/masuk', [BackofficeAuthController::class, 'store'])->name('login.store');
+
+    Route::middleware(['auth', 'backoffice'])->group(function () {
+        Route::post('/keluar', [BackofficeAuthController::class, 'destroy'])->name('logout');
+        Route::get('/', [BackofficeDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/affiliate/kader', [BackofficeAffiliateKaderController::class, 'index'])->name('affiliate.kaders');
+        Route::post('/affiliate/kader', [BackofficeAffiliateKaderController::class, 'store'])->name('affiliate.kaders.store');
+        Route::post('/affiliate/kader/{user}/toggle', [BackofficeAffiliateKaderController::class, 'toggle'])->name('affiliate.kaders.toggle');
+        Route::get('/affiliate/komisi', [BackofficeAffiliateCommissionController::class, 'settings'])->name('affiliate.settings');
+        Route::post('/affiliate/komisi', [BackofficeAffiliateCommissionController::class, 'updateSettings'])->name('affiliate.settings.update');
+        Route::get('/affiliate/pembayaran', [BackofficeAffiliateCommissionController::class, 'index'])->name('affiliate.commissions');
+        Route::post('/affiliate/pembayaran/{commission}/bayar', [BackofficeAffiliateCommissionController::class, 'markPaid'])->name('affiliate.commissions.pay');
+    });
 });

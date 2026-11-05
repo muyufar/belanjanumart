@@ -222,26 +222,29 @@ Setelah deploy fitur affiliate:
 ```bash
 php artisan migrate --force
 php artisan config:clear
+php artisan marketplace:create-backoffice-user staff@numart.id --password='********'
 ```
 
-`.env`:
+`.env` (opsional — email admin lama masih bisa akses backoffice):
 
 ```env
 MARKETPLACE_ADMIN_EMAILS=admin@example.com
 MARKETPLACE_SUPER_ADMIN_EMAILS=super@example.com
-# Lebih praktis untuk login kartu member (sama seperti /masuk):
-MARKETPLACE_SUPER_ADMIN_CARDS=NUBLJ00001234
+MARKETPLACE_SUPER_ADMIN_CARDS=
 MARKETPLACE_ADMIN_CARDS=
-AFFILIATE_COMMISSION_WARUNG=1.5
-AFFILIATE_COMMISSION_PRIORITAS=2.5
 ```
 
 | URL | Akses |
 |-----|--------|
-| `/admin/affiliate/kader` | Super admin — daftarkan mitra kader (nomor kartu POS) |
-| `/admin/affiliate/pengaturan` | Admin — persentase komisi warung / prioritas |
-| `/admin/affiliate/komisi` | Admin — tandai komisi sudah dibayar |
-| `/mitra-kader` | Mitra kader — panel, daftar mitra, pantau belanja |
+| `/backoffice/masuk` | Staff — email + password (`marketplace:create-backoffice-user` atau `MARKETPLACE_ADMIN_EMAILS`) |
+| `/backoffice/affiliate/kader` | Daftarkan / nonaktifkan mitra kader, dapat kode referral |
+| `/backoffice/affiliate/komisi` | Atur bagi hasil margin bersih (default 0,5%–1,5% dari margin) |
+| `/backoffice/affiliate/pembayaran` | Tandai komisi sudah dibayar |
+| `/masuk` | Member & mitra kader — **nomor kartu** POS |
+| `/mitra-kader` | Mitra kader — kode referral, daftar member, checkout untuk member |
+| `/profil` | Member — masukkan kode referral mitra kader |
+
+**Alur:** backoffice jadikan member jadi kader → kader bagikan kode `KDR-…` → member hubungkan di profil (atau kader daftarkan mitra) → saat member bayar, kader dapat komisi dari **margin bersih** Numart. Di checkout, kader bisa pilih belanja untuk diri sendiri atau untuk member affiliate.
 
 Komisi otomatis saat pesanan status `processing` (pembayaran diverifikasi). Jika POS menulis langsung ke DB belanja, jalankan:
 

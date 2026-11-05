@@ -23,7 +23,7 @@ class AffiliateCommissionService
         }
 
         $buyer = $order->user;
-        if (! $buyer?->affiliate_kader_id || ! $buyer->partner_kind) {
+        if (! $buyer?->affiliate_kader_id) {
             return null;
         }
 
@@ -32,22 +32,27 @@ class AffiliateCommissionService
             return null;
         }
 
-        $cfg = $this->settings->all();
-        $percent = $this->settings->percentForPartnerKind($buyer->partner_kind);
-        if ($percent <= 0) {
+        $order->loadMissing('items');
+        $subtotal = (int) $order->subtotal;
+        $cost = (int) $order->items->sum(fn ($item) => (int) $item->harga_beli * (int) $item->qty);
+        $netMargin = max(0, $subtotal - $cost);
+
+        $sharePercent = $this->settings->marginSharePercentForOrder($subtotal, $netMargin);
+        if ($sharePercent <= 0) {
             return null;
         }
 
-        $base = $cfg['basis'] === 'grand_total' ? (int) $order->grand_total : (int) $order->subtotal;
-        $amount = (int) floor($base * $percent / 100);
+        $amount = (int) floor($netMargin * $sharePercent / 100);
 
         return AffiliateCommission::create([
             'affiliate_user_id' => $affiliate->id,
             'referred_user_id' => $buyer->id,
             'order_id' => $order->id,
-            'partner_kind' => $buyer->partner_kind,
-            'order_base_amount' => $base,
-            'commission_percent' => $percent,
+            'partner_kind' => $buyer->partner_kind ?? 'referral',
+            'order_base_amount' => $subtotal,
+            'order_net_margin' => $netMargin,
+            'margin_share_percent' => $sharePercent,
+            'commission_percent' => $sharePercent,
             'commission_amount' => $amount,
             'status' => AffiliateCommission::STATUS_ACCRUED,
             'accrued_at' => now(),

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\BranchWhatsAppService;
+use App\Models\User;
 use App\Services\CartSessionService;
 use App\Services\CheckoutService;
 use App\Services\MemberContextService;
@@ -55,6 +55,14 @@ class CheckoutController extends Controller
             }
         }
 
+        $affiliateMembers = collect();
+        if ($user->isAffiliateKader() && $user->affiliate_active) {
+            $affiliateMembers = User::query()
+                ->where('affiliate_kader_id', $user->id)
+                ->orderBy('name')
+                ->get(['id', 'name', 'phone', 'address', 'member_card', 'partner_kind']);
+        }
+
         return view('checkout.create', [
             'items' => $items,
             'subtotal' => $subtotal,
@@ -67,6 +75,7 @@ class CheckoutController extends Controller
             'canCod' => $this->memberContext->canUseCod($user),
             'branchLabel' => $this->memberContext->branchLabel($cabang),
             'user' => $user,
+            'affiliateMembers' => $affiliateMembers,
             'belowMin' => $subtotal < $minOrder,
         ]);
     }
@@ -84,7 +93,19 @@ class CheckoutController extends Controller
             'gps_accuracy' => 'nullable|numeric|min:0|max:500',
             'shipping_quote_id' => 'nullable|integer|min:1',
             'shipping_service' => 'required_with:shipping_quote_id|nullable|in:direct,scheduled,manual',
+            'checkout_beneficiary' => 'nullable|in:self,member',
+            'beneficiary_user_id' => 'nullable|integer|exists:users,id',
         ]);
+
+        $actingUser = $request->user();
+        $buyerUser = $actingUser;
+        if (($validated['checkout_beneficiary'] ?? 'self') === 'member') {
+            $member = User::find((int) ($validated['beneficiary_user_id'] ?? 0));
+            if (! $member || (int) $member->affiliate_kader_id !== (int) $actingUser->id) {
+                return back()->withInput()->with('error', 'Member affiliate tidak valid.');
+            }
+            $buyerUser = $member;
+        }
 
         $cart = array_map(fn ($r) => [
             'barang_id' => $r['barang_id'],
@@ -97,7 +118,7 @@ class CheckoutController extends Controller
         }
 
         try {
-            $order = $this->checkout->placeOrder($validated, $cart, $request->user());
+            $order = $this->checkout->placeOrder($validated, $cart, $actingUser, $buyerUser);
             $this->cart->clear();
 
             $message = $validated['payment_method'] === 'cod'

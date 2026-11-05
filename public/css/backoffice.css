@@ -1,0 +1,72 @@
+.backoffice-body {
+    background: var(--bg);
+}
+
+.backoffice-layout {
+    display: flex;
+    min-height: 100dvh;
+}
+
+.backoffice-sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.backoffice-sidebar__brand {
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--primary-dark);
+}
+
+.backoffice-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.backoffice-nav a {
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.88rem;
+}
+
+.backoffice-nav a:hover {
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+}
+
+.backoffice-main {
+    flex: 1;
+    padding: 24px 20px;
+    max-width: 960px;
+}
+
+.backoffice-logout {
+    margin-top: auto;
+}
+
+@media (max-width: 768px) {
+    .backoffice-layout {
+        flex-direction: column;
+    }
+
+    .backoffice-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .backoffice-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+}

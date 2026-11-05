@@ -19,6 +19,8 @@ class AffiliateCommission extends Model
         'order_id',
         'partner_kind',
         'order_base_amount',
+        'order_net_margin',
+        'margin_share_percent',
         'commission_percent',
         'commission_amount',
         'status',

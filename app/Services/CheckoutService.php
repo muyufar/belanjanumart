@@ -20,10 +20,13 @@ class CheckoutService
     /**
      * @param  array<int, array{barang_id: int, barang_kode: string, qty: int}>  $cart
      */
-    public function placeOrder(array $input, array $cart, \App\Models\User $user): Order
+    public function placeOrder(array $input, array $cart, \App\Models\User $actingUser, ?\App\Models\User $buyerUser = null): Order
     {
-        $tier = $this->pricing->tierForUser($user);
-        $cabang = $this->memberContext->memberCabangId($user);
+        $buyer = $buyerUser ?? $actingUser;
+        $placedById = ($buyerUser && $buyerUser->id !== $actingUser->id) ? $actingUser->id : null;
+
+        $tier = $this->pricing->tierForUser($buyer);
+        $cabang = $this->memberContext->memberCabangId($buyer);
         $branchLabel = $this->memberContext->branchLabel($cabang);
         $paymentMethod = (string) ($input['payment_method'] ?? 'transfer');
 
@@ -31,7 +34,7 @@ class CheckoutService
             throw new \InvalidArgumentException('Metode pembayaran tidak valid.');
         }
 
-        if ($paymentMethod === 'cod' && ! $this->memberContext->canUseCod($user)) {
+        if ($paymentMethod === 'cod' && ! $this->memberContext->canUseCod($buyer)) {
             throw new \InvalidArgumentException('COD hanya untuk member terverifikasi. Gunakan transfer atau lengkapi verifikasi akun.');
         }
 
@@ -76,7 +79,7 @@ class CheckoutService
         $shippingContext = null;
         if ($this->delivery->required($cabang) || $quoteId > 0) {
             if ($quoteId < 1) throw new \DomainException('Ajukan ongkir dan tunggu verifikasi admin sebelum membuat pesanan.');
-            $shippingContext = $this->delivery->context($cart, $user, $input);
+            $shippingContext = $this->delivery->context($cart, $buyer, $input);
             if ($shippingContext['basket']['subtotal'] !== $subtotal) throw new \DomainException('Harga berubah. Muat ulang checkout.');
             $costs = array_column($shippingContext['basket']['lines'], 'unit_cost', 'code');
             foreach ($itemsPayload as &$payload) $payload['unit_cost'] = $costs[$payload['product']->barang_kode];
@@ -88,17 +91,22 @@ class CheckoutService
         $status = $paymentMethod === 'cod' ? 'pending_cod' : 'pending_transfer';
         [$customerLat, $customerLng] = $this->resolveCustomerCoordinates($input);
 
-        return DB::transaction(function () use ($input, $user, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext, $customerLat, $customerLng) {
+        $buyer->loadMissing('affiliateKader');
+        $referralCode = $buyer->affiliate_kader_id ? $buyer->affiliateKader?->affiliate_code : null;
+
+        return DB::transaction(function () use ($input, $buyer, $placedById, $referralCode, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext, $customerLat, $customerLng) {
             $snapshot = null;
             if ($shippingContext !== null) {
-                $snapshot = $this->delivery->engine()->consume($quoteId, $user->id, $cabang, $shippingContext['fingerprint']);
+                $snapshot = $this->delivery->engine()->consume($quoteId, $buyer->id, $cabang, $shippingContext['fingerprint']);
                 $shipping = $snapshot['money']['customer_fee'];
                 $grand = $subtotal + $shipping;
             }
             $order = Order::create([
                 ...($snapshot === null ? [] : ['shipping_quote_id' => $quoteId, 'shipping_snapshot' => $snapshot]),
                 'order_number' => 'MP-'.strtoupper(Str::random(10)),
-                'user_id' => $user->id,
+                'user_id' => $buyer->id,
+                'placed_by_user_id' => $placedById,
+                'affiliate_referral_code' => $referralCode,
                 'price_tier' => $tier,
                 'fulfillment_cabang' => $cabang,
                 'fulfillment_label' => $branchLabel,
