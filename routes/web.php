@@ -71,10 +71,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/affiliate/komisi/{commission}/bayar', [AffiliateCommissionAdminController::class, 'markPaid'])->name('admin.affiliate.commissions.pay');
     Route::get('/affiliate/pengaturan', [AffiliateCommissionAdminController::class, 'settings'])->name('admin.affiliate.settings');
     Route::post('/affiliate/pengaturan', [AffiliateCommissionAdminController::class, 'updateSettings'])->name('admin.affiliate.settings.update');
+
+    Route::redirect('/affiliate/kader', '/backoffice/affiliate/kader')->name('admin.affiliate.kaders');
 });
 
 Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
-    Route::redirect('/affiliate/kader', '/backoffice/affiliate/kader');
     Route::post('/affiliate/kader', [AffiliateKaderAdminController::class, 'store'])->name('admin.affiliate.kaders.store');
     Route::post('/affiliate/kader/{user}/toggle', [AffiliateKaderAdminController::class, 'toggleActive'])->name('admin.affiliate.kaders.toggle');
 });

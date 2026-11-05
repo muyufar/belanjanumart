@@ -9,7 +9,7 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function index(): View
     {
         return view('backoffice.dashboard', [
             'kaderCount' => User::where('marketplace_role', User::ROLE_AFFILIATE_KADER)->count(),

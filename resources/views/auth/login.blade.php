@@ -10,8 +10,8 @@
 
         @if(!empty($adminLoginHint))
             <div class="toast toast--ok" style="margin-bottom:12px">
-                Anda meminta halaman admin. Masuk dengan kartu member yang terdaftar sebagai super admin di <code>.env</code>
-                (<code>MARKETPLACE_SUPER_ADMIN_CARDS</code> atau email super admin).
+                Anda meminta halaman admin. Masuk dengan kartu di <code>MARKETPLACE_ADMIN_CARDS</code> / super admin,
+                atau staff gunakan <a href="{{ route('backoffice.login') }}">login backoffice</a> (email + password).
             </div>
         @endif
 
