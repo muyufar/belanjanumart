@@ -6,11 +6,11 @@
 @section('content')
     <div class="section-head">
         <h2 style="margin:0">Mitra saya</h2>
-        <a href="{{ route('affiliate.referrals.create') }}" class="btn" style="font-size:0.85rem;padding:8px 14px">+ Daftar</a>
+        <a href="{{ route('affiliate.referrals.create') }}" class="btn">+ Daftar mitra</a>
     </div>
 
     @if($referrals->isEmpty())
-        <div class="panel"><p class="muted" style="margin:0">Belum ada mitra warung / prioritas terdaftar.</p></div>
+        <div class="panel"><p class="muted" style="margin:0">Belum ada member affiliate terdaftar. Bagikan kode referral di profil member, atau klik <strong>+ Daftar mitra</strong> untuk mendaftarkan warung/prioritas.</p></div>
     @else
         <ul class="history-list">
             @foreach($referrals as $r)

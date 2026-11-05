@@ -871,10 +871,17 @@ body.quick-view-open {
     letter-spacing: -0.02em;
 }
 
-.section-head a {
+.section-head a:not(.btn) {
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--primary);
+}
+
+.section-head .btn {
+    color: var(--on-primary);
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    box-shadow: 0 2px 8px rgba(45, 155, 110, 0.25);
 }
 
 .home-section { margin-bottom: 28px; }
