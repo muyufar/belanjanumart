@@ -104,4 +104,16 @@ return [
 
     /** 1 poin per Rp berapa (selaras customer-zoom.php Numart) */
     'points_per_amount' => (int) env('MARKETPLACE_POINTS_PER_AMOUNT', 100_000),
+
+    /** Admin marketplace (verifikasi, komisi affiliate) — pisah koma */
+    'admin_emails' => env('MARKETPLACE_ADMIN_EMAILS', ''),
+
+    /** Super admin — hanya role ini yang boleh mendaftarkan mitra kader */
+    'super_admin_emails' => env('MARKETPLACE_SUPER_ADMIN_EMAILS', env('MARKETPLACE_ADMIN_EMAILS', '')),
+
+    'affiliate' => [
+        'commission_warung_percent' => (float) env('AFFILIATE_COMMISSION_WARUNG', 1.5),
+        'commission_prioritas_percent' => (float) env('AFFILIATE_COMMISSION_PRIORITAS', 2.5),
+        'commission_basis' => env('AFFILIATE_COMMISSION_BASIS', 'subtotal'),
+    ],
 ];

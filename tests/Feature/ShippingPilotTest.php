@@ -253,7 +253,17 @@ class ShippingPilotTest extends TestCase
             $m->shouldReceive('minOrderAmount')->andReturn(50000);
         });
         $cart = [['barang_id' => 1, 'barang_kode' => 'TEST', 'qty' => 10]];
-        $input = ['name' => 'Pembeli', 'phone' => '08123456789', 'address' => 'Alamat Muntilan', 'payment_method' => 'transfer', 'shipping_service' => 'direct'];
+        $input = [
+            'name' => 'Pembeli',
+            'phone' => '08123456789',
+            'address' => 'Alamat Muntilan',
+            'payment_method' => 'transfer',
+            'shipping_service' => 'direct',
+            'customer_lat' => -7.6,
+            'customer_lng' => 110.2,
+            'gps_valid' => '1',
+            'gps_accuracy' => '25',
+        ];
         $context = app(ShippingService::class)->context($cart, $this->customer, $input);
         $this->assertSame(91000, $context['basket']['cost']);
         $id = $this->request($context);

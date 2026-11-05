@@ -214,3 +214,34 @@ php artisan marketplace:check-numart
 ```
 
 Perintah `marketplace:check-numart` harus menampilkan **OK**. Jika **GAGAL / access denied**, username/password `NUMART_DB_*` belum cocok dengan user MySQL di hPanel.
+
+## Mitra Kader (Affiliate)
+
+Setelah deploy fitur affiliate:
+
+```bash
+php artisan migrate --force
+php artisan config:clear
+```
+
+`.env`:
+
+```env
+MARKETPLACE_ADMIN_EMAILS=admin@example.com
+MARKETPLACE_SUPER_ADMIN_EMAILS=super@example.com
+AFFILIATE_COMMISSION_WARUNG=1.5
+AFFILIATE_COMMISSION_PRIORITAS=2.5
+```
+
+| URL | Akses |
+|-----|--------|
+| `/admin/affiliate/kader` | Super admin — daftarkan mitra kader (nomor kartu POS) |
+| `/admin/affiliate/pengaturan` | Admin — persentase komisi warung / prioritas |
+| `/admin/affiliate/komisi` | Admin — tandai komisi sudah dibayar |
+| `/mitra-kader` | Mitra kader — panel, daftar mitra, pantau belanja |
+
+Komisi otomatis saat pesanan status `processing` (pembayaran diverifikasi). Jika POS menulis langsung ke DB belanja, jalankan:
+
+```bash
+php artisan affiliate:accrue-pending
+```

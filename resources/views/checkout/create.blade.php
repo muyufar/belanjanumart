@@ -66,6 +66,27 @@
                         <textarea name="address" rows="3" required>{{ old('address', $quoteData['address'] ?? $user->address ?? '') }}</textarea>
                     </div>
 
+                    <div class="checkout-gps panel" style="margin-top:14px;padding:14px 16px">
+                        <div class="checkout-gps__head">
+                            <div>
+                                <p class="checkout-gps__title">Lokasi pengiriman (GPS)</p>
+                                <p class="muted checkout-gps__hint">Wajib ambil titik lokasi agar kurir menuju alamat yang benar.</p>
+                            </div>
+                            <button type="button" class="btn secondary checkout-gps__btn" id="checkout-gps-btn">
+                                Ambil lokasi saya
+                            </button>
+                        </div>
+                        <p class="checkout-gps__status checkout-gps__status--idle" id="checkout-gps-status" role="status">
+                            Belum ada lokasi GPS.
+                        </p>
+                        <p class="checkout-gps__coords muted" id="checkout-gps-coords"></p>
+                        <a href="#" target="_blank" rel="noopener" class="checkout-gps__map" id="checkout-gps-map" hidden>Lihat di peta</a>
+                        <input type="hidden" name="customer_lat" id="customer_lat" value="{{ old('customer_lat') }}">
+                        <input type="hidden" name="customer_lng" id="customer_lng" value="{{ old('customer_lng') }}">
+                        <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ old('gps_accuracy') }}">
+                        <input type="hidden" name="gps_valid" id="gps_valid" value="{{ old('gps_valid', '0') }}">
+                    </div>
+
                     <p style="font-weight:700;margin:16px 0 8px">Metode pembayaran</p>
                     <label class="panel payment-option" style="display:block;margin-bottom:8px;cursor:pointer">
                         <input type="radio" name="payment_method" value="transfer" {{ old('payment_method', $quoteData['payment_method'] ?? 'transfer') === 'transfer' ? 'checked' : '' }} required>
@@ -126,3 +147,7 @@
         </aside>
     </div>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/checkout-gps.js') }}" defer></script>
+@endpush

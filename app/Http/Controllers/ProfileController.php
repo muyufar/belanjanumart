@@ -21,7 +21,7 @@ class ProfileController extends Controller
 
     public function show(Request $request): View
     {
-        $user = $request->user();
+        $user = $request->user()->load('affiliateKader');
         abort_unless($user, 403);
 
         $customer = null;

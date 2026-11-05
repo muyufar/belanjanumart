@@ -78,6 +78,10 @@ class CheckoutController extends Controller
             'phone' => 'required|string|max:30',
             'address' => 'required|string|max:1000',
             'payment_method' => 'required|in:cod,transfer',
+            'customer_lat' => 'required|numeric|between:-90,90',
+            'customer_lng' => 'required|numeric|between:-180,180',
+            'gps_valid' => 'required|in:1',
+            'gps_accuracy' => 'nullable|numeric|min:0|max:500',
             'shipping_quote_id' => 'nullable|integer|min:1',
             'shipping_service' => 'required_with:shipping_quote_id|nullable|in:direct,scheduled,manual',
         ]);
@@ -108,9 +112,17 @@ class CheckoutController extends Controller
 
     public function requestShipping(Request $request): RedirectResponse
     {
-        $input = $request->validate(['name' => 'required|string|max:200', 'phone' => 'required|string|max:30',
-            'address' => 'required|string|max:1000', 'payment_method' => 'required|in:cod,transfer',
-            'shipping_service' => 'required|in:direct,scheduled,manual']);
+        $input = $request->validate([
+            'name' => 'required|string|max:200',
+            'phone' => 'required|string|max:30',
+            'address' => 'required|string|max:1000',
+            'payment_method' => 'required|in:cod,transfer',
+            'customer_lat' => 'required|numeric|between:-90,90',
+            'customer_lng' => 'required|numeric|between:-180,180',
+            'gps_valid' => 'required|in:1',
+            'gps_accuracy' => 'nullable|numeric|min:0|max:500',
+            'shipping_service' => 'required|in:direct,scheduled,manual',
+        ]);
         try {
             $context = $this->delivery->context($this->cart->all(), $request->user(), $input);
             $id = $this->delivery->engine()->request($request->user()->id, $this->memberContext->memberCabangId($request->user()), $context);

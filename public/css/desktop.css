@@ -880,6 +880,10 @@
         box-shadow: var(--shadow-sm);
     }
 
+    .affiliate-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     /* ── Order detail ── */
     .page--order .order-layout {
         display: grid;

@@ -35,7 +35,15 @@
 
             <div class="panel" style="margin-bottom:14px;margin-top:14px">
                 <p class="muted" style="margin:0 0 6px">{{ $order->fulfillment_label }}</p>
-                <p class="muted" style="margin:0">Metode: <strong>{{ strtoupper($order->payment_method) }}</strong></p>
+                <p class="muted" style="margin:0 0 6px">Metode: <strong>{{ strtoupper($order->payment_method) }}</strong></p>
+                @if($order->customer_lat && $order->customer_lng)
+                    <p class="muted" style="margin:0;font-size:0.85rem">
+                        Lokasi GPS:
+                        <a href="https://www.google.com/maps?q={{ $order->customer_lat }},{{ $order->customer_lng }}" target="_blank" rel="noopener">
+                            {{ number_format($order->customer_lat, 6) }}, {{ number_format($order->customer_lng, 6) }}
+                        </a>
+                    </p>
+                @endif
             </div>
 
             <div class="panel">

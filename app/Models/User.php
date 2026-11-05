@@ -5,11 +5,20 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    public const ROLE_MEMBER = 'member';
+
+    public const ROLE_AFFILIATE_KADER = 'affiliate_kader';
+
+    public const PARTNER_WARUNG = 'warung';
+
+    public const PARTNER_PRIORITAS = 'prioritas';
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -37,6 +46,11 @@ class User extends Authenticatable
         'verification_reviewed_at',
         'must_change_password',
         'wa_password_sent_at',
+        'marketplace_role',
+        'partner_kind',
+        'affiliate_kader_id',
+        'affiliate_code',
+        'affiliate_active',
     ];
 
     /**
@@ -63,6 +77,36 @@ class User extends Authenticatable
             'wa_password_sent_at' => 'datetime',
             'verification_submitted_at' => 'datetime',
             'verification_reviewed_at' => 'datetime',
+            'affiliate_active' => 'boolean',
         ];
+    }
+
+    public function affiliateKader(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'affiliate_kader_id');
+    }
+
+    public function referredMembers(): HasMany
+    {
+        return $this->hasMany(self::class, 'affiliate_kader_id');
+    }
+
+    public function affiliateCommissions(): HasMany
+    {
+        return $this->hasMany(AffiliateCommission::class, 'affiliate_user_id');
+    }
+
+    public function isAffiliateKader(): bool
+    {
+        return $this->marketplace_role === self::ROLE_AFFILIATE_KADER;
+    }
+
+    public function partnerKindLabel(): ?string
+    {
+        return match ($this->partner_kind) {
+            self::PARTNER_WARUNG => 'Mitra warung',
+            self::PARTNER_PRIORITAS => 'Mitra prioritas',
+            default => null,
+        };
     }
 }

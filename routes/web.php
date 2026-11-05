@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\AffiliateCommissionAdminController;
+use App\Http\Controllers\Admin\AffiliateKaderAdminController;
 use App\Http\Controllers\Admin\MemberVerificationAdminController;
 use App\Http\Controllers\Admin\OrderAdminController;
+use App\Http\Controllers\Affiliate\AffiliateDashboardController;
 use App\Http\Controllers\Auth\MarketplaceLoginController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
@@ -43,6 +46,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/pesanan/{order}/bukti-transfer', [OrderController::class, 'uploadProof'])->name('orders.upload-proof');
 
     Route::get('/profil', [ProfileController::class, 'show'])->name('profile.show');
+
+    Route::middleware('affiliate_kader')->prefix('mitra-kader')->name('affiliate.')->group(function () {
+        Route::get('/', [AffiliateDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/mitra', [AffiliateDashboardController::class, 'referrals'])->name('referrals');
+        Route::get('/mitra/daftar', [AffiliateDashboardController::class, 'createReferral'])->name('referrals.create');
+        Route::post('/mitra/daftar', [AffiliateDashboardController::class, 'storeReferral'])->name('referrals.store');
+        Route::get('/belanja', [AffiliateDashboardController::class, 'orders'])->name('orders');
+    });
 });
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
@@ -50,4 +61,15 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/verifikasi-member', [MemberVerificationAdminController::class, 'index'])->name('admin.members.verify');
     Route::post('/verifikasi-member/{user}/setujui', [MemberVerificationAdminController::class, 'approve'])->name('admin.members.approve');
     Route::post('/verifikasi-member/{user}/tolak', [MemberVerificationAdminController::class, 'reject'])->name('admin.members.reject');
+
+    Route::get('/affiliate/komisi', [AffiliateCommissionAdminController::class, 'commissions'])->name('admin.affiliate.commissions');
+    Route::post('/affiliate/komisi/{commission}/bayar', [AffiliateCommissionAdminController::class, 'markPaid'])->name('admin.affiliate.commissions.pay');
+    Route::get('/affiliate/pengaturan', [AffiliateCommissionAdminController::class, 'settings'])->name('admin.affiliate.settings');
+    Route::post('/affiliate/pengaturan', [AffiliateCommissionAdminController::class, 'updateSettings'])->name('admin.affiliate.settings.update');
+});
+
+Route::middleware(['auth', 'super_admin'])->prefix('admin')->group(function () {
+    Route::get('/affiliate/kader', [AffiliateKaderAdminController::class, 'index'])->name('admin.affiliate.kaders');
+    Route::post('/affiliate/kader', [AffiliateKaderAdminController::class, 'store'])->name('admin.affiliate.kaders.store');
+    Route::post('/affiliate/kader/{user}/toggle', [AffiliateKaderAdminController::class, 'toggleActive'])->name('admin.affiliate.kaders.toggle');
 });

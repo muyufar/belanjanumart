@@ -29,6 +29,14 @@
                         <svg id="memberBarcode" class="digital-card__barcode"></svg>
                     @endif
                     <div class="digital-card__points">Total poin: <strong>{{ number_format($points, 0, ',', '.') }}</strong></div>
+                    @if(auth()->user()?->partnerKindLabel())
+                        <div class="digital-card__meta" style="margin-top:8px">
+                            Program: <strong>{{ auth()->user()->partnerKindLabel() }}</strong>
+                            @if(auth()->user()->affiliateKader)
+                                · Kader {{ auth()->user()->affiliateKader->name }}
+                            @endif
+                        </div>
+                    @endif
                     <div class="digital-card__meta" style="margin-top:8px">
                         Verifikasi:
                         @php
@@ -42,6 +50,9 @@
                         } }}</strong>
                     </div>
                 </div>
+                @if(auth()->user()?->isAffiliateKader() && auth()->user()->affiliate_active)
+                    <a href="{{ route('affiliate.dashboard') }}" class="btn block" style="margin-top:12px">Panel Mitra Kader</a>
+                @endif
                 @if(in_array($verificationStatus ?? 'none', ['none', 'rejected'], true))
                     <a href="{{ route('member.verification.create') }}" class="btn block" style="margin-top:12px">Upload dokumen verifikasi</a>
                 @endif

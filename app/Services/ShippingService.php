@@ -54,9 +54,17 @@ class ShippingService
         if (!$lines || $subtotal < $this->members->minOrderAmount($tier)) throw new \DomainException('Keranjang belum memenuhi minimal belanja.');
         usort($lines, fn ($a, $b) => strcmp($a['code'], $b['code']));
         if ($input['payment_method'] === 'cod' && !$this->members->canUseCod($user)) throw new \DomainException('COD hanya untuk member terverifikasi.');
-        $data = ['name' => trim($input['name']), 'phone' => trim($input['phone']), 'address' => trim($input['address']),
-            'payment_method' => $input['payment_method'], 'service' => $input['shipping_service'],
-            'basket' => ['lines' => $lines, 'subtotal' => $subtotal, 'cost' => $cost, 'cost_known' => $known]];
+        $data = [
+            'name' => trim($input['name']),
+            'phone' => trim($input['phone']),
+            'address' => trim($input['address']),
+            'payment_method' => $input['payment_method'],
+            'service' => $input['shipping_service'],
+            'customer_lat' => (float) $input['customer_lat'],
+            'customer_lng' => (float) $input['customer_lng'],
+            'gps_accuracy' => isset($input['gps_accuracy']) ? (float) $input['gps_accuracy'] : null,
+            'basket' => ['lines' => $lines, 'subtotal' => $subtotal, 'cost' => $cost, 'cost_known' => $known],
+        ];
         $data['fingerprint'] = hash('sha256', json_encode([$branch, $tier, $data], JSON_THROW_ON_ERROR));
         return $data;
     }

@@ -71,6 +71,11 @@ class Order extends Model
         return $this->hasMany(StockHold::class);
     }
 
+    public function affiliateCommission(): HasOne
+    {
+        return $this->hasOne(AffiliateCommission::class);
+    }
+
     public function isPaid(): bool
     {
         return in_array($this->status, ['paid', 'processing', 'shipped', 'completed'], true);

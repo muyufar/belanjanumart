@@ -86,8 +86,9 @@ class CheckoutService
         $holdMinutes = (int) config('marketplace.stock_hold_minutes', 15);
         $expires = now()->addMinutes($holdMinutes);
         $status = $paymentMethod === 'cod' ? 'pending_cod' : 'pending_transfer';
+        [$customerLat, $customerLng] = $this->resolveCustomerCoordinates($input);
 
-        return DB::transaction(function () use ($input, $user, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext) {
+        return DB::transaction(function () use ($input, $user, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext, $customerLat, $customerLng) {
             $snapshot = null;
             if ($shippingContext !== null) {
                 $snapshot = $this->delivery->engine()->consume($quoteId, $user->id, $cabang, $shippingContext['fingerprint']);
@@ -95,13 +96,14 @@ class CheckoutService
                 $grand = $subtotal + $shipping;
             }
             $order = Order::create([
-                ...($snapshot === null ? [] : ['shipping_quote_id' => $quoteId, 'shipping_snapshot' => $snapshot,
-                    'customer_lat' => $snapshot['verified']['lat'], 'customer_lng' => $snapshot['verified']['lng']]),
+                ...($snapshot === null ? [] : ['shipping_quote_id' => $quoteId, 'shipping_snapshot' => $snapshot]),
                 'order_number' => 'MP-'.strtoupper(Str::random(10)),
                 'user_id' => $user->id,
                 'price_tier' => $tier,
                 'fulfillment_cabang' => $cabang,
                 'fulfillment_label' => $branchLabel,
+                'customer_lat' => $customerLat,
+                'customer_lng' => $customerLng,
                 'customer_name' => $input['name'],
                 'customer_phone' => $input['phone'],
                 'customer_address' => $input['address'],
@@ -162,5 +164,33 @@ class CheckoutService
         ]);
 
         return $order->fresh(['items', 'user']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array{0: float, 1: float}
+     */
+    protected function resolveCustomerCoordinates(array $input): array
+    {
+        $lat = isset($input['customer_lat']) ? (float) $input['customer_lat'] : null;
+        $lng = isset($input['customer_lng']) ? (float) $input['customer_lng'] : null;
+
+        if ($lat === null || $lng === null) {
+            throw new \InvalidArgumentException('Lokasi GPS wajib diambil sebelum checkout.');
+        }
+
+        if (($input['gps_valid'] ?? '') !== '1') {
+            throw new \InvalidArgumentException('Konfirmasi lokasi GPS belum valid.');
+        }
+
+        $accuracy = isset($input['gps_accuracy']) && $input['gps_accuracy'] !== ''
+            ? (float) $input['gps_accuracy']
+            : null;
+
+        if ($accuracy !== null && $accuracy > 500) {
+            throw new \InvalidArgumentException('Akurasi GPS terlalu rendah. Ambil ulang lokasi di area terbuka.');
+        }
+
+        return [$lat, $lng];
     }
 }

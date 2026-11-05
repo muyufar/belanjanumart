@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\AffiliateCommissionService;
 use App\Services\NumartOrderSyncService;
 use App\Services\OrderTrackingService;
 use Illuminate\Http\JsonResponse;
@@ -64,6 +65,8 @@ class NumartOrderApiController extends Controller
 
         try {
             $invoice = app(NumartOrderSyncService::class)->syncPaidOrder($model);
+            $model->refresh();
+            app(AffiliateCommissionService::class)->accrueForOrder($model);
             $model->update(['paid_at' => now()]);
 
             return response()->json([

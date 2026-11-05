@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\AffiliateRegistrationService;
 use App\Services\MemberContextService;
 use App\Services\NumartCustomerService;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +16,7 @@ class MarketplaceLoginController extends Controller
     public function __construct(
         protected NumartCustomerService $numartCustomers,
         protected MemberContextService $memberContext,
+        protected AffiliateRegistrationService $affiliateRegistration,
     ) {}
 
     public function create(): View|RedirectResponse
@@ -41,6 +43,7 @@ class MarketplaceLoginController extends Controller
         }
 
         $user = $this->numartCustomers->loginOrCreateUserFromCustomer($customer);
+        $user = $this->affiliateRegistration->syncUserFromReferral($user);
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
