@@ -9,6 +9,17 @@
         <a href="{{ route('backoffice.affiliate.commissions', ['status' => 'paid']) }}">Sudah dibayar</a>
     </p>
 
+    @if($commissions->isEmpty())
+        <div class="panel">
+            <p class="muted" style="margin:0 0 8px">Belum ada komisi dengan status ini.</p>
+            <p class="muted" style="margin:0;font-size:0.85rem">
+                Komisi muncul setelah pesanan <strong>member referral</strong> lunas (status processing).
+                Jika bayar dikonfirmasi dari POS, jalankan di server belanja:
+                <code style="display:block;margin-top:6px">php artisan affiliate:accrue-pending</code>
+            </p>
+        </div>
+    @endif
+
     @foreach($commissions as $c)
         <div class="panel" style="margin-bottom:10px;padding:12px">
             <strong>{{ $c->affiliate?->name }}</strong> · {{ $c->order?->order_number }}

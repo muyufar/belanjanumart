@@ -84,6 +84,26 @@ class NumartOrderApiController extends Controller
         }
     }
 
+    public function accrueAffiliate(int $order): JsonResponse
+    {
+        $model = Order::with(['items', 'user'])->find($order);
+
+        if (! $model) {
+            return response()->json(['success' => false, 'message' => 'Pesanan tidak ditemukan.'], 404);
+        }
+
+        $commission = app(AffiliateCommissionService::class)->accrueForOrder($model);
+
+        return response()->json([
+            'success' => true,
+            'created' => $commission !== null,
+            'commission_id' => $commission?->id,
+            'message' => $commission
+                ? 'Komisi affiliate tercatat.'
+                : 'Tidak ada komisi (member tanpa kader, kader nonaktif, atau pesanan belum lunas).',
+        ]);
+    }
+
     public function updateTracking(Request $request, int $order): JsonResponse
     {
         $model = Order::find($order);

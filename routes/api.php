@@ -10,6 +10,10 @@ Route::post('/numart/orders/{order}/confirm-payment', [NumartOrderApiController:
     ->middleware('numart.api')
     ->whereNumber('order');
 
+Route::post('/numart/orders/{order}/accrue-affiliate', [NumartOrderApiController::class, 'accrueAffiliate'])
+    ->middleware('numart.api')
+    ->whereNumber('order');
+
 Route::post('/numart/orders/{order}/tracking', [NumartOrderApiController::class, 'updateTracking'])
     ->middleware('numart.api')
     ->whereNumber('order');

@@ -246,8 +246,12 @@ MARKETPLACE_ADMIN_CARDS=
 
 **Alur:** backoffice jadikan member jadi kader → kader bagikan kode `KDR-…` → member hubungkan di profil (atau kader daftarkan mitra) → saat member bayar, kader dapat komisi dari **margin bersih** Numart. Di checkout, kader bisa pilih belanja untuk diri sendiri atau untuk member affiliate.
 
-Komisi otomatis saat pesanan status `processing` (pembayaran diverifikasi). Jika POS menulis langsung ke DB belanja, jalankan:
+Komisi otomatis saat pesanan status `processing` (pembayaran diverifikasi). Konfirmasi dari POS memanggil API `accrue-affiliate` jika `marketplace-lib.php` sudah di-update.
+
+Untuk pesanan yang **sudah lunas sebelumnya** tapi komisi belum muncul:
 
 ```bash
 php artisan affiliate:accrue-pending
 ```
+
+Syarat komisi: pembeli (`orders.user_id`) punya `affiliate_kader_id`, kader aktif, pesanan sudah `processing`/`paid`.
