@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Affiliate;
 
 use App\Http\Controllers\Controller;
 use App\Models\AffiliateCommission;
-use App\Models\AffiliateReferral;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\AffiliateCommissionService;
@@ -53,14 +52,14 @@ class AffiliateDashboardController extends Controller
     {
         $kader = $request->user();
 
-        $referrals = AffiliateReferral::with('referredUser')
-            ->where('affiliate_user_id', $kader->id)
+        $members = User::query()
+            ->where('affiliate_kader_id', $kader->id)
             ->orderByDesc('id')
             ->paginate(20);
 
         return view('affiliate.referrals', [
             'kader' => $kader,
-            'referrals' => $referrals,
+            'members' => $members,
             'cartCount' => 0,
         ]);
     }

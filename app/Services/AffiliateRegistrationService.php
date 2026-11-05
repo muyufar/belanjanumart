@@ -108,7 +108,7 @@ class AffiliateRegistrationService
             ]);
             $user->save();
 
-            return AffiliateReferral::updateOrCreate(
+            $referral = AffiliateReferral::updateOrCreate(
                 ['member_card' => $kartu],
                 [
                     'affiliate_user_id' => $kader->id,
@@ -120,6 +120,8 @@ class AffiliateRegistrationService
                     'warung_name' => $input['warung_name'] ?? null,
                 ]
             );
+
+            return $referral;
         });
     }
 
@@ -182,7 +184,35 @@ class AffiliateRegistrationService
             'partner_kind' => $user->partner_kind ?: 'referral',
         ]);
 
-        return $user->fresh();
+        $user = $user->fresh();
+        $this->syncReferralRowForUser($user, $kader);
+
+        return $user;
+    }
+
+    public function syncReferralRowForUser(User $member, User $kader): void
+    {
+        if ((int) $member->affiliate_kader_id !== (int) $kader->id) {
+            return;
+        }
+
+        $kartu = strtoupper(trim((string) ($member->member_card ?? '')));
+        if ($kartu === '') {
+            return;
+        }
+
+        AffiliateReferral::updateOrCreate(
+            ['member_card' => $kartu],
+            [
+                'affiliate_user_id' => $kader->id,
+                'referred_user_id' => $member->id,
+                'numart_customer_id' => (int) ($member->numart_customer_id ?? 0) ?: null,
+                'partner_kind' => $member->partner_kind ?? 'referral',
+                'customer_name' => $member->name,
+                'customer_phone' => $member->phone,
+                'warung_name' => $member->warung_name,
+            ]
+        );
     }
 
     protected function generateAffiliateCode(): string
