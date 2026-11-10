@@ -134,6 +134,45 @@ class NumartErpClient
             'foto_warung_base64' => $businessPhotoBinary !== null ? base64_encode($businessPhotoBinary) : null]))['data'];
     }
 
+    /* ---- Ongkir (O-5) — ganti mesin lokal Nugrosir\Shipping (shipping_campaigns/quotes/trips). Subsidi dihitung ERP dari margin; HPP tidak dikirim. ---- */
+
+    /** @return array{aktif:bool, wajib:bool, berakhir:string|null, layanan:list<string>} wajib = checkout harus memakai penawaran ongkir */
+    public function shippingStatus(int $branchId): array
+    {
+        return $this->send('GET', '/api/v1/integrasi/ongkir/status?cabang_id='.$branchId)['data'];
+    }
+
+    /** @return list<array> 10 permintaan terbaru pelanggan (id, status, siap, sidik, permintaan, keranjang, berlaku_sampai (UTC), snapshot{route,money}) */
+    public function shippingQuotes(int $branchId, string $customerRef): array
+    {
+        return $this->send('GET', '/api/v1/integrasi/ongkir/permintaan?'.http_build_query(['cabang_id' => $branchId, 'pelanggan_ref' => $customerRef]))['data'];
+    }
+
+    /**
+     * @param  array{cabang_id:int, pelanggan_ref:string, sidik:string, nama:string, hp:string, alamat:string, metode_bayar:string, layanan:string, lat:float, lng:float, akurasi?:float|null,
+     *               baris:list<array{kode:string, qty:int, harga:int|string}>}  $data  sidik sama & masih aktif → permintaan yang sama
+     */
+    public function requestShipping(array $data): array
+    {
+        return $this->send('POST', '/api/v1/integrasi/ongkir/permintaan', $data)['data'];
+    }
+
+    public function cancelShipping(int $id, string $customerRef): array
+    {
+        return $this->send('DELETE', '/api/v1/integrasi/ongkir/permintaan/'.$id.'?pelanggan_ref='.rawurlencode($customerRef))['data'];
+    }
+
+    /** Dipanggil saat membuat pesanan; idempoten per nomor pesanan. Pesanan gagal dibuat → releaseShipping(). */
+    public function consumeShipping(int $id, string $customerRef, string $fingerprint, string $orderNo): array
+    {
+        return $this->send('POST', '/api/v1/integrasi/ongkir/permintaan/'.$id.'/pakai', ['pelanggan_ref' => $customerRef, 'sidik' => $fingerprint, 'pesanan' => $orderNo])['data'];
+    }
+
+    public function releaseShipping(int $id, string $orderNo): array
+    {
+        return $this->send('DELETE', '/api/v1/integrasi/ongkir/permintaan/'.$id.'/pakai?pesanan='.rawurlencode($orderNo))['data'];
+    }
+
     /** Verifikasi webhook dari ERP (route POST /api/webhooks/numart-erp di belanjanumart). Penerima wajib idempoten pakai X-Event-Id. */
     public static function verifyWebhook(string $secret, string $timestamp, string $path, string $body, string $signature): bool
     {

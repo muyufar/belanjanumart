@@ -39,6 +39,12 @@ class NumartErpAdapterTest extends TestCase
 
     private array $customers = [];
 
+    /** ERP palsu: gagalkan reservasi stok (uji pelepasan penawaran ongkir). */
+    private bool $failReserve = false;
+
+    /** ERP palsu: kampanye ongkir cabang aktif & wajib (O-5). */
+    private bool $shippingRequired = false;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -89,6 +95,13 @@ class NumartErpAdapterTest extends TestCase
             (bool) preg_match('#/pelanggan/(\d+)/riwayat$#', $path) => Http::response(['data' => [
                 ['nota' => 'GDG-2611-0001', 'waktu' => '2026-11-10 10:00:00', 'total' => '120000.00', 'jenis_bayar' => 'nontunai', 'status' => 'selesai', 'online' => true, 'cabang' => 'GDG', 'nama_cabang' => 'Gudang'],
             ]]),
+            $path === "$p/ongkir/status" => Http::response(['data' => ['aktif' => $this->shippingRequired, 'wajib' => $this->shippingRequired, 'berakhir' => '2026-12-11 00:00:00', 'layanan' => ['direct', 'scheduled', 'manual']]]),
+            $path === "$p/ongkir/permintaan" && $r->method() === 'GET' => Http::response(['data' => [$this->erpQuote()]]),
+            $path === "$p/ongkir/permintaan" && $r->method() === 'POST' => Http::response(['data' => ['id' => 7, 'status' => 'pending'] + $this->erpQuote()]),
+            str_ends_with($path, '/pakai') && $r->method() === 'POST' => Http::response(['data' => ['status' => 'consumed', 'pesanan' => $body['pesanan']] + $this->erpQuote()]),
+            str_ends_with($path, '/pakai') && $r->method() === 'DELETE' => Http::response(['data' => ['status' => 'approved'] + $this->erpQuote()]),
+            (bool) preg_match('#/ongkir/permintaan/\d+$#', $path) && $r->method() === 'DELETE' => Http::response(['data' => ['status' => 'cancelled'] + $this->erpQuote()]),
+            str_ends_with($path, '/reservasi') && $r->method() === 'PUT' && $this->failReserve => Http::response(['error' => ['code' => 'STOCK_INSUFFICIENT', 'message' => 'Stok tidak cukup.']], 422),
             str_ends_with($path, '/reservasi') && $r->method() === 'PUT' => Http::response(['data' => ['nomor_pesanan' => basename(dirname($path))]], 201),
             str_ends_with($path, '/reservasi') && $r->method() === 'DELETE' => Http::response(['data' => ['dilepas' => 1]]),
             str_ends_with($path, '/penuhi') => Http::response(['data' => ['nomor_pesanan' => basename(dirname($path)), 'nota' => 'GDG-2611-0042', 'grand_total' => $body['total_mitra'] ?? null]], 201),
@@ -122,6 +135,16 @@ class NumartErpAdapterTest extends TestCase
         return ['pelanggan_id' => $id, 'nama' => $name, 'hp' => $hp, 'email' => null, 'alamat' => 'Muntilan', 'kartu' => $kartu, 'tipe_harga' => $tier,
             'cabang_asal_id' => $home, 'cabang_asal' => null, 'aktif' => true, 'poin' => 14,
             'verifikasi' => ['status' => 'none', 'diajukan_pada' => null, 'diputuskan_pada' => null, 'catatan' => null, 'ada_foto_warung' => false]];
+    }
+
+    /** Penawaran ongkir ERP (O-5): tarif 12.000 − subsidi 2.000 (dihitung ERP dari margin) = 10.000; waktu UTC. */
+    private function erpQuote(): array
+    {
+        return ['id' => 7, 'status' => 'approved', 'siap' => true, 'sidik' => str_repeat('a', 64), 'pesanan' => null, 'berlaku_sampai' => gmdate('Y-m-d H:i:s', time() + 3600),
+            'permintaan' => ['nama' => 'Pembeli', 'hp' => '081200000000', 'alamat' => 'Jl. Uji', 'metode_bayar' => 'transfer', 'layanan' => 'direct', 'lat' => -7.6, 'lng' => 110.2, 'akurasi' => null],
+            'keranjang' => ['baris' => [['kode' => 'BRS5', 'nama' => 'Beras 5 kg', 'qty' => 2, 'isi' => 1, 'harga' => 63000]], 'subtotal' => 126000],
+            'snapshot' => ['route' => ['service' => 'direct', 'start' => gmdate('Y-m-d H:i:s', time() + 86400), 'end' => gmdate('Y-m-d H:i:s', time() + 93600)],
+                'money' => ['fare' => 12000, 'subsidy' => 2000, 'customer_fee' => 10000]]];
     }
 
     private function callsTo(string $suffix, ?string $method = null): array
@@ -276,6 +299,51 @@ class NumartErpAdapterTest extends TestCase
         $this->assertCount(1, $this->callsTo('/reservasi', 'DELETE'));
     }
 
+    public function test_shipping_quote_goes_to_erp_and_checkout_consumes_it_with_order_number(): void
+    {
+        $this->shippingRequired = true;
+        $user = User::factory()->create(['price_tier' => 0]);
+        $svc = app(ShippingService::class);
+        $this->assertTrue($svc->required(0), 'status ongkir dari ERP (cabang POS 0 → ERP 1)');
+        $input = ['name' => 'Pembeli', 'phone' => '081200000000', 'address' => 'Jl. Uji', 'payment_method' => 'transfer', 'shipping_service' => 'direct',
+            'customer_lat' => -7.6, 'customer_lng' => 110.2, 'gps_valid' => '1'];
+        $ctx = $svc->context([['barang_kode' => 'BRS5', 'qty' => 2]], $user, $input);
+        $this->assertSame(7, $svc->request($user, 0, $ctx));
+        $req = $this->callsTo('/ongkir/permintaan', 'POST')[0]['body'];
+        $this->assertSame([1, (string) $user->id, $ctx['fingerprint'], [['kode' => 'BRS5', 'qty' => 2, 'harga' => 63000]]], [$req['cabang_id'], $req['pelanggan_ref'], $req['sidik'], $req['baris']]);
+        $this->assertArrayNotHasKey('hpp', $req, 'web belanja tidak mengirim/menerima HPP');
+
+        $q = $svc->quotes($user, 0)->first();   // bentuk baris shipping_quotes lama → tampilan checkout tidak berubah
+        $this->assertSame([7, 'approved', 126000, 10000], [$q->id, $q->status, json_decode($q->request_json, true)['basket']['subtotal'], json_decode($q->snapshot_json, true)['money']['customer_fee']]);
+
+        $order = app(CheckoutService::class)->placeOrder($input + ['shipping_quote_id' => 7], [['barang_id' => 501, 'barang_kode' => 'BRS5', 'qty' => 2]], $user);
+        $use = $this->callsTo('/ongkir/permintaan/7/pakai', 'POST')[0]['body'];
+        $this->assertSame([(string) $user->id, $ctx['fingerprint'], $order->order_number], [$use['pelanggan_ref'], $use['sidik'], $use['pesanan']]);
+        $this->assertSame([10000, 136000, 2000, 7], [(int) $order->shipping_fee, (int) $order->grand_total, $order->shipping_snapshot['money']['subsidy'], $order->shipping_snapshot['erp_quote_id']]);
+        $this->assertNull($order->shipping_quote_id);
+
+        $svc->cancel(7, $user);
+        $this->assertCount(1, $this->callsTo('/ongkir/permintaan/7', 'DELETE'));
+    }
+
+    public function test_failed_order_releases_consumed_erp_shipping_quote(): void
+    {
+        $this->failReserve = true;
+        $this->shippingRequired = true;
+        $user = User::factory()->create(['price_tier' => 0]);
+        try {
+            app(CheckoutService::class)->placeOrder(['name' => 'Pembeli', 'phone' => '081200000000', 'address' => 'Jl. Uji', 'payment_method' => 'transfer', 'shipping_service' => 'direct',
+                'customer_lat' => -7.6, 'customer_lng' => 110.2, 'gps_valid' => '1', 'shipping_quote_id' => 7], [['barang_id' => 501, 'barang_kode' => 'BRS5', 'qty' => 2]], $user);
+            $this->fail('reservasi gagal harus menggagalkan pesanan');
+        } catch (\Throwable $e) {
+            $this->assertStringContainsString('Stok', $e->getMessage());
+        }
+        $this->assertSame(0, Order::count());
+        $consume = $this->callsTo('/ongkir/permintaan/7/pakai', 'POST')[0]['body']['pesanan'];
+        $release = $this->callsTo('/ongkir/permintaan/7/pakai', 'DELETE')[0];
+        $this->assertSame($consume, $release['query']['pesanan'], 'penawaran dilepas untuk nomor pesanan yang gagal');
+    }
+
     public function test_shipping_context_marks_cost_unknown_on_erp(): void
     {
         $user = User::factory()->create(['price_tier' => 0]);
@@ -283,7 +351,7 @@ class NumartErpAdapterTest extends TestCase
             'name' => 'A', 'phone' => '0812', 'address' => 'B', 'payment_method' => 'transfer', 'shipping_service' => 'direct', 'customer_lat' => -7.6, 'customer_lng' => 110.2,
         ]);
 
-        $this->assertFalse($ctx['basket']['cost_known']);   // TODO O-5
+        $this->assertFalse($ctx['basket']['cost_known']);   // O-5: margin dihitung ERP saat menerbitkan penawaran
         $this->assertSame(0, $ctx['basket']['cost']);
     }
 

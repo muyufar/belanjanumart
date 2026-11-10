@@ -99,16 +99,20 @@ class CheckoutService
         $buyer->loadMissing('affiliateKader');
         $referralCode = $buyer->affiliate_kader_id ? $buyer->affiliateKader?->affiliate_code : null;
 
-        return DB::transaction(function () use ($input, $buyer, $placedById, $referralCode, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext, $customerLat, $customerLng) {
+        $orderNumber = 'MP-'.strtoupper(Str::random(10));
+        $consumed = false;
+        try {
+        return DB::transaction(function () use ($input, $buyer, $placedById, $referralCode, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext, $customerLat, $customerLng, $orderNumber, &$consumed) {
             $snapshot = null;
             if ($shippingContext !== null) {
-                $snapshot = $this->delivery->engine()->consume($quoteId, $buyer->id, $cabang, $shippingContext['fingerprint']);
+                $snapshot = $this->delivery->consume($quoteId, $buyer, $cabang, $shippingContext['fingerprint'], $orderNumber);
+                $consumed = true;
                 $shipping = $snapshot['money']['customer_fee'];
                 $grand = $subtotal + $shipping;
             }
             $order = Order::create([
-                ...($snapshot === null ? [] : ['shipping_quote_id' => $quoteId, 'shipping_snapshot' => $snapshot]),
-                'order_number' => 'MP-'.strtoupper(Str::random(10)),
+                ...($snapshot === null ? [] : ['shipping_quote_id' => NumartSource::erp() ? null : $quoteId, 'shipping_snapshot' => $snapshot + (NumartSource::erp() ? ['erp_quote_id' => $quoteId] : [])]),
+                'order_number' => $orderNumber,
                 'user_id' => $buyer->id,
                 'placed_by_user_id' => $placedById,
                 'affiliate_referral_code' => $referralCode,
@@ -168,9 +172,16 @@ class CheckoutService
                 app(ErpOrders::class)->reserve($order, $erpLines);
             }
 
-            if ($snapshot !== null) DB::table('shipping_quotes')->where('id', $quoteId)->update(['order_id' => $order->id]);
+            if ($snapshot !== null && ! NumartSource::erp()) DB::table('shipping_quotes')->where('id', $quoteId)->update(['order_id' => $order->id]);
             return $order->fresh(['items', 'user']);
         });
+        } catch (\Throwable $e) {
+            // Penawaran ERP sudah dipakai tetapi pesanan lokal gagal dibuat → lepaskan agar pembeli bisa mencoba lagi.
+            if ($consumed) {
+                try { $this->delivery->release($quoteId, $orderNumber); } catch (\Throwable) { report($e); }
+            }
+            throw $e;
+        }
     }
 
     /** Dipanggil webhook BRI saat VA lunas (sebelumnya metode ini belum ada → webhook BRI selalu error). */

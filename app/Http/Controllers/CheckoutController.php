@@ -36,7 +36,7 @@ class CheckoutController extends Controller
         $cabang = $this->memberContext->memberCabangId($user);
 
         $shippingRequired = $this->delivery->required($cabang);
-        $quotes = $shippingRequired ? DB::table('shipping_quotes')->where('user_id', $user->id)->where('branch_id', $cabang)->orderByDesc('id')->limit(10)->get() : collect();
+        $quotes = $shippingRequired ? $this->delivery->quotes($user, $cabang) : collect();
         $quote = $quotes->firstWhere('id', (int) $request->query('quote'));
         $quoteData = $quote ? json_decode($quote->request_json, true) : null;
         $quoteSnapshot = $quote && $quote->snapshot_json ? json_decode($quote->snapshot_json, true) : null;
@@ -146,7 +146,7 @@ class CheckoutController extends Controller
         ]);
         try {
             $context = $this->delivery->context($this->cart->all(), $request->user(), $input);
-            $id = $this->delivery->engine()->request($request->user()->id, $this->memberContext->memberCabangId($request->user()), $context);
+            $id = $this->delivery->request($request->user(), $this->memberContext->memberCabangId($request->user()), $context);
             return redirect()->route('checkout.create', ['quote' => $id])->with('success', 'Permintaan ongkir dikirim. Admin akan memeriksa rute, muatan, dan jadwal. Muat ulang halaman ini untuk melihat penawaran.');
         } catch (\DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
@@ -156,7 +156,7 @@ class CheckoutController extends Controller
     public function cancelShipping(Request $request, int $quote): RedirectResponse
     {
         try {
-            $this->delivery->engine()->cancelQuote($quote, 'customer:'.$request->user()->id, $request->user()->id);
+            $this->delivery->cancel($quote, $request->user());
             return redirect()->route('checkout.create')->with('success', 'Penawaran dibatalkan.');
         } catch (\DomainException $e) {
             return back()->with('error', $e->getMessage());

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\Erp\ErpShipping;
 use App\Support\NumartSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -20,10 +21,41 @@ class ShippingService
 
     public function required(int $branch): bool
     {
+        if (NumartSource::erp()) return app(ErpShipping::class)->required($branch);
         if (!Schema::hasTable('shipping_campaigns')) return false;
         $c = $this->engine()->campaign();
         // Once activated, pausing must not silently restore the old free checkout.
         return (int) $c['branch_id'] === $branch && $c['ends_at'] !== null;
+    }
+
+    /** Permintaan ongkir pelanggan di cabang ini (bentuk baris shipping_quotes). */
+    public function quotes(User $user, int $branch): \Illuminate\Support\Collection
+    {
+        if (NumartSource::erp()) return app(ErpShipping::class)->quotes($user->id, $branch);
+        return DB::table('shipping_quotes')->where('user_id', $user->id)->where('branch_id', $branch)->orderByDesc('id')->limit(10)->get();
+    }
+
+    public function request(User $user, int $branch, array $context): int
+    {
+        return NumartSource::erp() ? app(ErpShipping::class)->request($user->id, $branch, $context) : $this->engine()->request($user->id, $branch, $context);
+    }
+
+    public function cancel(int $quote, User $user): void
+    {
+        NumartSource::erp() ? app(ErpShipping::class)->cancel($quote, $user->id) : $this->engine()->cancelQuote($quote, 'customer:'.$user->id, $user->id);
+    }
+
+    /** Pakai penawaran saat membuat pesanan (di dalam transaksi pesanan). @return array snapshot untuk orders.shipping_snapshot */
+    public function consume(int $quote, User $user, int $branch, string $fingerprint, string $orderNumber): array
+    {
+        return NumartSource::erp() ? app(ErpShipping::class)->consume($quote, $user->id, $fingerprint, $orderNumber)
+            : $this->engine()->consume($quote, $user->id, $branch, $fingerprint);
+    }
+
+    /** Pesanan gagal dibuat setelah penawaran dipakai: di ERP penawaran dilepas lagi (jalur pos: rollback DB lokal sudah cukup). */
+    public function release(int $quote, string $orderNumber): void
+    {
+        if (NumartSource::erp()) app(ErpShipping::class)->release($quote, $orderNumber);
     }
 
     public function context(array $cart, User $user, array $input): array
@@ -33,11 +65,9 @@ class ShippingService
         $lines = [];
         $subtotal = $cost = 0;
         $known = true;
-        // TODO O-5 (keputusan pemilik belum ada): kampanye ongkir menghitung margin dari HPP (barang_harga_beli_rata POS lama),
-        // tetapi ERP sengaja TIDAK membuka HPP ke mitra. Pada NUMART_SOURCE=erp barang_harga_beli selalu null → hpp 0 →
-        // basket.cost_known = false (konteks "HPP tidak diketahui", sama seperti saat data HPP kurang). Jangan diisi tebakan.
-        // Pilihan yang menunggu keputusan: (a) ERP kirim HPP/margin khusus klien ini, (b) hitung subsidi ongkir di ERP,
-        // (c) aturan kampanye tanpa HPP.
+        // O-5 (keputusan pemilik 2026-11-11): subsidi ongkir dihitung dari jarak, jumlah pesanan & margin toko. Pada NUMART_SOURCE=erp
+        // margin dihitung ERP dari HPP-nya sendiri saat menerbitkan penawaran (HPP tidak dibuka ke web ini) → di sini cost tetap 0 /
+        // cost_known false; nilai itu tidak dipakai untuk subsidi di jalur erp.
         $erp = NumartSource::erp();
         $hasAverage = ! $erp && Schema::connection('numart')->hasColumn('barang', 'barang_harga_beli_rata');
         foreach ($cart as $row) {
