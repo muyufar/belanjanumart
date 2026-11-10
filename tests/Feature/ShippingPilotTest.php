@@ -26,6 +26,8 @@ class ShippingPilotTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Tes ini menguji HPP dari tabel `barang` POS lama → selalu jalur pos, apa pun NUMART_SOURCE (jalur erp: NumartErpAdapterTest).
+        config(['marketplace.numart_source' => 'pos']);
         $this->assertSame(':memory:', config('database.connections.sqlite.database'));
         require_once app_path('Support/NugrosirShipping.php');
         $this->engine = new Shipping(DB::connection()->getPdo());

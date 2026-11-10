@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Sumber data toko untuk tes: pos (default produksi). Jalankan mode erp dengan NUMART_SOURCE=erp di environment. -->
+        <env name="NUMART_SOURCE" value="pos"/>
     </php>
 </phpunit>
