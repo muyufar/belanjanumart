@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    /*
+    | NUMART ERP (D-31) — pengganti koneksi DB `numart` (POS lama). Dipakai saat NUMART_SOURCE=erp.
+    | branch_codes: nomor cabang POS lama (dipakai di seluruh aplikasi ini) → kode cabang ERP; id ERP dicari lewat GET /integrasi/cabang.
+    | branch_map (opsional, "0:1,1:2,5:6") menimpa pencarian kode bila perlu.
+    */
+    'numart_erp' => [
+        'url' => env('NUMART_ERP_URL'),
+        'client_id' => env('NUMART_ERP_CLIENT_ID'),
+        'secret' => env('NUMART_ERP_CLIENT_SECRET'),
+        'branch_codes' => [0 => 'GDG', 1 => 'DKN', 2 => 'PKS', 3 => 'SRB', 4 => 'BQN', 5 => 'TGR', 6 => 'RTR'],
+        'branch_map' => env('NUMART_ERP_BRANCH_MAP', ''),
+        'reserve_minutes' => (int) env('NUMART_ERP_RESERVE_MINUTES', 120),
+        'cache_seconds' => (int) env('NUMART_ERP_CACHE_SECONDS', 60),
+    ],
+
 ];

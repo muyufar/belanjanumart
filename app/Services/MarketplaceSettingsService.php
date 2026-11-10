@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Services\Erp\ErpSettings;
+use App\Support\NumartSource;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -34,6 +36,22 @@ class MarketplaceSettingsService
             'retail' => (int) config('marketplace.min_order_retail', 500_000),
             'grosir' => (int) config('marketplace.min_order_grosir', 1_000_000),
         ];
+
+        if (NumartSource::erp()) {
+            // O-4: diatur dari Backoffice ERP → Pengaturan → Belanja online
+            try {
+                $rows = app(ErpSettings::class)->all()['pengaturan'] ?? [];
+
+                return [
+                    'retail' => isset($rows['min_order_retail']) ? max(0, (int) $rows['min_order_retail']) : $defaults['retail'],
+                    'grosir' => isset($rows['min_order_grosir']) ? max(0, (int) $rows['min_order_grosir']) : $defaults['grosir'],
+                ];
+            } catch (\Throwable $e) {
+                report($e);
+
+                return $defaults;
+            }
+        }
 
         if (! $this->tableExists()) {
             return $defaults;
@@ -74,5 +92,6 @@ class MarketplaceSettingsService
     public function forgetCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        app(ErpSettings::class)->forget();
     }
 }

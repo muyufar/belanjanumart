@@ -3,6 +3,12 @@
 return [
     'name' => env('MARKETPLACE_NAME', 'Belanja Numart'),
 
+    /**
+     * Sumber data toko (D-31): `pos` = DB POS lama (koneksi `numart`), `erp` = API NUMART ERP (services.numart_erp).
+     * Default `pos` agar produksi tidak berubah sampai cutover. Rollback = kembalikan ke `pos`.
+     */
+    'numart_source' => env('NUMART_SOURCE', 'pos'),
+
     /** Nama kasir di laporan penjualan Numart */
     'kasir_label' => env('MARKETPLACE_KASIR_LABEL', 'Belanja Online'),
 

@@ -31,8 +31,8 @@ class ProfileController extends Controller
         $history = collect();
         $points = 0;
 
-        if ($user->numart_customer_id) {
-            $customer = $this->numartCustomers->findById((int) $user->numart_customer_id);
+        if ($user->numartCustomerId()) {
+            $customer = $this->numartCustomers->findById((int) $user->numartCustomerId());
             if ($customer) {
                 $history = $this->numartCustomers->purchaseHistory((int) $customer->customer_id);
                 $points = $this->numartCustomers->customerPoints((int) $customer->customer_id);

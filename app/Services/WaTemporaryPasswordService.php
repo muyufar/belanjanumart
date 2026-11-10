@@ -76,7 +76,7 @@ class WaTemporaryPasswordService
                 'password' => Hash::make($plainPassword),
                 'must_change_password' => true,
                 'wa_password_sent_at' => now(),
-                'numart_customer_id' => (int) $customer->customer_id,
+                User::customerIdColumn() => (int) $customer->customer_id,
                 'address' => (string) ($customer->customer_alamat ?? ''),
                 'price_tier' => $this->numartCustomers->priceTierFromCustomer($customer),
                 'warung_verification_status' => $this->numartCustomers->warungStatusFromCustomer($customer),

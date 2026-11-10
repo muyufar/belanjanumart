@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Services\Erp\ErpCatalog;
+use App\Support\NumartSource;
 use Illuminate\Support\Facades\DB;
 
 class FulfillmentService
@@ -96,6 +98,14 @@ class FulfillmentService
 
     public function stockPcsForKode(string $kode, int $cabangId): float
     {
+        if (NumartSource::erp()) {
+            // stok tersedia (stok − reservasi online aktif) di satu cabang, kunci barang = kode
+            $res = app(ErpCatalog::class)->search($cabangId, 0, ['kode' => $kode], [$cabangId], 1, 1);
+            $row = $res['rows']->first();
+
+            return $row ? (float) $row->barang_stock : 0.0;
+        }
+
         $row = DB::connection('numart')
             ->table('barang')
             ->where('barang_kode', $kode)

@@ -15,7 +15,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Peta cabang POS→ERP dihitung sekali per request (NUMART_SOURCE=erp).
+        $this->app->singleton(\App\Services\Erp\ErpBranchMap::class);
     }
 
     /**

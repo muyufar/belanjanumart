@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Services\Erp\ErpOrders;
+use App\Support\NumartSource;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +17,10 @@ class NumartOrderSyncService
     {
         if ($order->numart_invoice) {
             return $order->numart_invoice;
+        }
+
+        if (NumartSource::erp()) {
+            return $this->syncPaidOrderToErp($order);
         }
 
         $order->load('items');
@@ -120,6 +126,26 @@ class NumartOrderSyncService
         ]);
 
         return $invoiceNo;
+    }
+
+    /**
+     * NUMART_SOURCE=erp: POST /integrasi/pesanan/{nomor}/penuhi → nota, stok keluar, jurnal, dan pengiriman (O-1) dibuat ERP.
+     * Tidak ada tulisan ke DB POS lama. Idempoten: memanggil ulang mengembalikan nota yang sama.
+     */
+    protected function syncPaidOrderToErp(Order $order): string
+    {
+        $res = app(ErpOrders::class)->fulfill($order);
+        $nota = (string) $res['nota'];
+
+        $order->update([
+            'numart_invoice' => $nota,
+            'numart_source' => 'erp',
+            'status' => 'processing',
+            'tracking_status' => \App\Services\OrderTrackingService::PREPARING,
+            'tracking_updated_at' => now(),
+        ]);
+
+        return $nota;
     }
 
     protected function nextInvoiceCount(int $cabang): int

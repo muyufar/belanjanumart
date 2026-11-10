@@ -34,8 +34,8 @@ class ForgotPasswordController extends Controller
         $phone = $request->phone;
         $user = $this->numartCustomers->userForPhone($phone);
 
-        if ($user && $user->numart_customer_id) {
-            $customer = $this->numartCustomers->findById((int) $user->numart_customer_id, false);
+        if ($user && $user->numartCustomerId()) {
+            $customer = $this->numartCustomers->findById((int) $user->numartCustomerId(), false);
             if ($customer) {
                 return $this->completeReset($request, $customer);
             }

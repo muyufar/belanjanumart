@@ -61,9 +61,9 @@ class MemberVerificationController extends Controller
             'verification_reviewed_at' => null,
         ]);
 
-        if ($user->numart_customer_id) {
+        if ($user->numartCustomerId()) {
             $this->numartCustomers->syncVerificationToCustomer(
-                (int) $user->numart_customer_id,
+                (int) $user->numartCustomerId(),
                 $ktpPath,
                 $businessPath,
                 'pending',

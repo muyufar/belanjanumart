@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Services\Erp\ErpCatalog;
+use App\Support\NumartSource;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +49,12 @@ class CatalogService
 
     public function categories(int $cabangId = 0, ?int $limit = 50): Collection
     {
+        if (NumartSource::erp()) {
+            $cats = app(ErpCatalog::class)->categories($cabangId);
+
+            return $limit !== null && $limit > 0 ? $cats->take($limit)->values() : $cats;
+        }
+
         $q = DB::connection('numart')
             ->table('kategori')
             ->where('kategori_status', '1')
@@ -67,6 +75,10 @@ class CatalogService
         }
 
         $cabangId = $cabangId > 0 ? $cabangId : (int) config('marketplace.catalog_cabang_display', 0);
+
+        if (NumartSource::erp()) {
+            return app(ErpCatalog::class)->categories($cabangId)->firstWhere('kategori_id', $kategoriId);
+        }
 
         return DB::connection('numart')
             ->table('kategori')
@@ -96,6 +108,9 @@ class CatalogService
     ): LengthAwarePaginator {
         $perPage = $perPage ?? (int) config('marketplace.products_per_page', 20);
         $filters ??= new CatalogProductFilters;
+        if (NumartSource::erp()) {
+            return $this->erpPaginate($cabangId, $tier, $this->erpParams($filters, $search, $kategoriId), $perPage, $pageName, $memberCabang, $forcedOffset, $excludeBarangId);
+        }
         $query = $this->productsQuery($cabangId, $search, $kategoriId, $excludeBarangId, $memberCabang);
         $this->applyProductFilters($query, $filters, $memberCabang);
         $this->applyProductSort($query, $filters, $tier, $memberCabang);
@@ -127,6 +142,15 @@ class CatalogService
             return collect();
         }
 
+        if (NumartSource::erp()) {
+            $order = array_flip($kodes);
+
+            return $this->erpProducts($cabangId, $tier, ['kode' => implode(',', array_slice($kodes, 0, 100))], $memberCabang, min(100, count($kodes)))
+                ->sortBy(fn ($p) => $order[$p->barang_kode] ?? 9999)
+                ->values()
+                ->take($limit);
+        }
+
         $query = $this->productsQuery($cabangId, null, null, null, $memberCabang)
             ->whereIn('b.barang_kode', $kodes);
 
@@ -153,6 +177,9 @@ class CatalogService
     public function bestSellingProducts(int $cabangId, int $tier, ?int $limit = null, ?int $memberCabang = null): Collection
     {
         $limit = $limit ?? (int) config('marketplace.home_best_sellers_limit', 8);
+        if (NumartSource::erp()) {
+            return $this->erpProducts($cabangId, $tier, ['urut' => 'terlaris', 'terlaris_hari' => (int) config('marketplace.best_sellers_days', 7)], $memberCabang, $limit);
+        }
         $topKodes = $this->topSellingKodes($limit * 3, $memberCabang);
 
         return $this->productsByKodes($cabangId, $tier, $topKodes, $limit, $memberCabang);
@@ -161,6 +188,9 @@ class CatalogService
     public function latestProducts(int $cabangId, int $tier, ?int $limit = null, ?int $memberCabang = null): Collection
     {
         $limit = $limit ?? (int) config('marketplace.home_latest_limit', 8);
+        if (NumartSource::erp()) {
+            return $this->erpProducts($cabangId, $tier, ['urut' => 'terbaru'], $memberCabang, $limit);
+        }
         $query = $this->productsQuery($cabangId, null, null, null, $memberCabang)
             ->orderByDesc('b.barang_tanggal')
             ->orderByDesc('b.barang_id');
@@ -187,6 +217,9 @@ class CatalogService
         ?CatalogProductFilters $filters = null,
     ): LengthAwarePaginator {
         $filters ??= new CatalogProductFilters(sort: CatalogProductFilters::SORT_TERBARU);
+        if (NumartSource::erp()) {
+            return $this->erpPaginate($cabangId, $tier, $this->erpParams($filters, $search, null), $perPage ?? (int) config('marketplace.products_per_page', 20), $pageName, $memberCabang);
+        }
         $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang);
         $this->applyProductFilters($query, $filters, $memberCabang);
         $this->applyProductSort($query, $filters, $tier, $memberCabang);
@@ -204,6 +237,9 @@ class CatalogService
         ?CatalogProductFilters $filters = null,
     ): LengthAwarePaginator {
         $filters ??= new CatalogProductFilters(sort: CatalogProductFilters::SORT_TERLARIS);
+        if (NumartSource::erp()) {
+            return $this->erpPaginate($cabangId, $tier, $this->erpParams($filters, $search, null), $perPage ?? (int) config('marketplace.products_per_page', 20), $pageName, $memberCabang);
+        }
         $salesSub = $this->salesByKodeSubquery($memberCabang);
         $query = $this->productsQuery($cabangId, $search, null, null, $memberCabang);
         $this->applyProductFilters($query, $filters, $memberCabang);
@@ -469,6 +505,10 @@ class CatalogService
 
     public function product(int $cabangId, int $barangId, int $tier, ?int $memberCabang = null): ?object
     {
+        if (NumartSource::erp()) {
+            return $barangId > 0 ? $this->erpProducts($cabangId, $tier, ['id' => (string) $barangId], $memberCabang, 1)->first() : null;
+        }
+
         $row = DB::connection('numart')
             ->table('barang')
             ->where('barang_id', $barangId)
@@ -488,6 +528,10 @@ class CatalogService
 
     public function productByKode(int $cabangId, string $kode, int $tier, ?int $memberCabang = null): ?object
     {
+        if (NumartSource::erp()) {
+            return $kode !== '' ? $this->erpProducts($cabangId, $tier, ['kode' => $kode], $memberCabang, 1)->first() : null;
+        }
+
         $row = DB::connection('numart')
             ->table('barang')
             ->where('barang_kode', $kode)
@@ -507,6 +551,12 @@ class CatalogService
 
     public function hasStockForKode(string $kode, ?int $memberCabang = null): bool
     {
+        if (NumartSource::erp()) {
+            $cabang = $memberCabang ?? (int) config('marketplace.catalog_cabang_display', 0);
+
+            return (bool) $this->productByKode($cabang, $kode, 0, $memberCabang)?->in_stock;
+        }
+
         return DB::connection('numart')
             ->table('barang')
             ->where('barang_kode', $kode)
@@ -514,6 +564,69 @@ class CatalogService
             ->where('barang_status', '1')
             ->whereRaw('CAST(barang_stock AS DECIMAL(12,2)) > 0')
             ->exists();
+    }
+
+    /* ---------------- Jalur NUMART_SOURCE=erp (API NUMART ERP) ---------------- */
+
+    /**
+     * Terjemahkan filter katalog ke parameter /integrasi/katalog. null = hasil pasti kosong.
+     * Batasan ERP: urut nama Z-A & harga tidak didukung (jatuh ke urut nama A-Z); filter stok "habis" tidak didukung (diabaikan);
+     * urut terlaris di ERP hanya memuat barang yang terjual dalam N hari.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function erpParams(CatalogProductFilters $filters, ?string $search, ?int $kategoriId): ?array
+    {
+        $p = ['q' => $search ?: null, 'kategori_id' => $kategoriId ?: ($filters->kategoriId ?: null)];
+        $p['urut'] = match ($filters->sort) {
+            CatalogProductFilters::SORT_TERBARU => 'terbaru',
+            CatalogProductFilters::SORT_TERLARIS => 'terlaris',
+            default => 'nama',
+        };
+        if ($p['urut'] === 'terlaris') {
+            $p['terlaris_hari'] = (int) config('marketplace.best_sellers_days', 7);
+        }
+        if ($filters->stok === 'ada') {
+            $p['hanya_ada_stok'] = 1;
+        }
+        if ($filters->promo === 'diskon') {
+            $kodes = $this->discounts->activeDiscountsByKode()->keys()->take(100)->all();
+            if ($kodes === []) {
+                return null;
+            }
+            $p['kode'] = implode(',', $kodes);
+        }
+
+        return $p;
+    }
+
+    protected function erpProducts(int $cabangId, int $tier, array $params, ?int $memberCabang, int $limit): Collection
+    {
+        $res = app(ErpCatalog::class)->search($cabangId, $tier, $params, $this->stockBranchIds($memberCabang), 1, max(1, $limit));
+        $discountMap = $this->discounts->activeDiscountsByKode();
+
+        return $res['rows']->map(fn ($row) => $this->mapProductRow($row, $tier, $discountMap))->values();
+    }
+
+    protected function erpPaginate(int $cabangId, int $tier, ?array $params, int $perPage, string $pageName, ?int $memberCabang, ?int $forcedOffset = null, ?int $excludeBarangId = null): LengthAwarePaginator
+    {
+        $currentPage = $forcedOffset !== null ? (int) floor($forcedOffset / max(1, $perPage)) + 1 : max(1, (int) Request::input($pageName, 1));
+        $items = collect();
+        $total = 0;
+
+        if ($params !== null) {
+            $res = app(ErpCatalog::class)->search($cabangId, $tier, $params, $this->stockBranchIds($memberCabang), $currentPage, $perPage);
+            $discountMap = $this->discounts->activeDiscountsByKode();
+            $total = $res['total'];
+            $items = $res['rows']
+                ->reject(fn ($row) => $excludeBarangId && (int) $row->barang_id === $excludeBarangId)
+                ->map(fn ($row) => $this->mapProductRow($row, $tier, $discountMap))
+                ->values();
+        }
+
+        $paginator = new LengthAwarePaginator($items, $total, $perPage, $currentPage, ['path' => Request::url(), 'pageName' => $pageName]);
+
+        return $forcedOffset !== null ? $paginator : $paginator->appends(collect(Request::query())->except($pageName)->all());
     }
 
     protected function imageUrl(?string $path): ?string

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Services\Erp\ErpOrders;
 use Illuminate\Support\Facades\DB;
 
 class OrderTrackingService
@@ -112,12 +113,46 @@ class OrderTrackingService
         }
 
         try {
-            return $this->applyNumartInvoice($order);
+            // Pesanan yang dipenuhi di ERP dibaca dari modul kurir ERP (O-1); pesanan lama tetap dibaca (hanya-baca) dari POS.
+            return $order->numart_source === 'erp' ? $this->applyErpDelivery($order) : $this->applyNumartInvoice($order);
         } catch (\Throwable $e) {
             report($e);
 
             return $order;
         }
+    }
+
+    /** GET /integrasi/pesanan/{nomor}/pengiriman → status_belanja sudah memakai kunci kelas ini. */
+    private function applyErpDelivery(Order $order): Order
+    {
+        $d = app(ErpOrders::class)->delivery($order);
+        if (! $d) {
+            return $order;
+        }
+
+        $status = $d['status_belanja'] ?? null;
+        $note = ! empty($d['kurir']) ? 'Kurir: '.$d['kurir'] : null;
+        if (($d['status'] ?? null) === 'gagal') {
+            // gagal: langkah sebelumnya dipertahankan + catatan (perilaku sama dengan membaca POS lama)
+            $status = $order->tracking_status;
+            $reason = trim((string) ($d['catatan'] ?? ''));
+            $note = $reason !== '' && ! str_starts_with($reason, 'Pengiriman gagal') ? 'Pengiriman gagal — '.$reason : ($reason ?: 'Pengiriman gagal');
+        }
+        if (! $status || ! array_key_exists($status, self::labels())) {
+            return $order;
+        }
+
+        return $this->applyIfChanged($order, $status, $note);
+    }
+
+    /** Dipakai webhook ERP pengiriman.diperbarui & sinkron baca: hanya menulis bila ada perubahan. */
+    public function applyIfChanged(Order $order, string $trackingStatus, ?string $note): Order
+    {
+        if ($order->tracking_status !== $trackingStatus || ($note && $order->tracking_note !== $note)) {
+            return $this->updateTracking($order, $trackingStatus, $note ?? $order->tracking_note);
+        }
+
+        return $order;
     }
 
     private function applyNumartInvoice(Order $order): Order

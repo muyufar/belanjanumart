@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Services\Erp\ErpBranchMap;
+use App\Support\NumartSource;
 use Illuminate\Support\Facades\DB;
 
 class NumartTokoService
@@ -10,6 +12,27 @@ class NumartTokoService
     {
         if ($cabangId < 0) {
             return null;
+        }
+
+        if (NumartSource::erp()) {
+            // O-3: profil cabang ERP (GET /integrasi/cabang) dalam bentuk baris `toko` POS lama; qris = URL penuh.
+            try {
+                $b = app(ErpBranchMap::class)->profile($cabangId);
+            } catch (\Throwable $e) {
+                report($e);
+
+                return null;
+            }
+
+            return $b === null ? null : (object) [
+                'toko_cabang' => $cabangId,
+                'toko_nama' => $b['nama'] ?? null,
+                'toko_wa' => $b['whatsapp'] ?? null,
+                'toko_tlpn' => $b['telepon'] ?? null,
+                'toko_alamat' => $b['alamat'] ?? null,
+                'toko_kota' => $b['kota'] ?? null,
+                'toko_qris' => $b['qris'] ?? null,
+            ];
         }
 
         return DB::connection('numart')

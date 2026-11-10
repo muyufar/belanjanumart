@@ -63,6 +63,8 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/pesanan', [OrderAdminController::class, 'index'])->name('admin.orders');
+    Route::post('/pesanan/{order}/konfirmasi-lunas', [OrderAdminController::class, 'confirmPayment'])->name('admin.orders.confirm');
+    Route::post('/pesanan/{order}/batal', [OrderAdminController::class, 'cancel'])->name('admin.orders.cancel');
     Route::get('/verifikasi-member', [MemberVerificationAdminController::class, 'index'])->name('admin.members.verify');
     Route::post('/verifikasi-member/{user}/setujui', [MemberVerificationAdminController::class, 'approve'])->name('admin.members.approve');
     Route::post('/verifikasi-member/{user}/tolak', [MemberVerificationAdminController::class, 'reject'])->name('admin.members.reject');

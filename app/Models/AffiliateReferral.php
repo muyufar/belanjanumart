@@ -11,6 +11,7 @@ class AffiliateReferral extends Model
         'affiliate_user_id',
         'referred_user_id',
         'numart_customer_id',
+        'erp_customer_id',
         'member_card',
         'partner_kind',
         'customer_name',

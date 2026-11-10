@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\NumartSource;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,6 +35,7 @@ class User extends Authenticatable
         'email',
         'password',
         'numart_customer_id',
+        'erp_customer_id',
         'member_card',
         'member_cabang',
         'price_tier',
@@ -70,6 +72,20 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    /** Kolom id pelanggan untuk sumber aktif: numart_customer_id (POS lama) atau erp_customer_id (ERP). */
+    public static function customerIdColumn(): string
+    {
+        return NumartSource::erp() ? 'erp_customer_id' : 'numart_customer_id';
+    }
+
+    /** Id pelanggan di sistem toko yang sedang aktif (NUMART_SOURCE). */
+    public function numartCustomerId(): ?int
+    {
+        $id = (int) ($this->{self::customerIdColumn()} ?? 0);
+
+        return $id > 0 ? $id : null;
+    }
+
     protected function casts(): array
     {
         return [

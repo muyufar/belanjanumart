@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\NumartSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Nugrosir\Shipping;
@@ -32,7 +33,13 @@ class ShippingService
         $lines = [];
         $subtotal = $cost = 0;
         $known = true;
-        $hasAverage = Schema::connection('numart')->hasColumn('barang', 'barang_harga_beli_rata');
+        // TODO O-5 (keputusan pemilik belum ada): kampanye ongkir menghitung margin dari HPP (barang_harga_beli_rata POS lama),
+        // tetapi ERP sengaja TIDAK membuka HPP ke mitra. Pada NUMART_SOURCE=erp barang_harga_beli selalu null → hpp 0 →
+        // basket.cost_known = false (konteks "HPP tidak diketahui", sama seperti saat data HPP kurang). Jangan diisi tebakan.
+        // Pilihan yang menunggu keputusan: (a) ERP kirim HPP/margin khusus klien ini, (b) hitung subsidi ongkir di ERP,
+        // (c) aturan kampanye tanpa HPP.
+        $erp = NumartSource::erp();
+        $hasAverage = ! $erp && Schema::connection('numart')->hasColumn('barang', 'barang_harga_beli_rata');
         foreach ($cart as $row) {
             $p = $this->catalog->productByKode($branch, $row['barang_kode'], $tier, $branch);
             if (!$p) throw new \DomainException('Produk tidak tersedia. Perbarui keranjang.');

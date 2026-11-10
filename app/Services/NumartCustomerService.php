@@ -3,13 +3,42 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\Erp\ErpCustomers;
+use App\Support\NumartSource;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class NumartCustomerService
 {
     /** ID khusus sistem — bukan pelanggan login */
     public const RESERVED_IDS = [0, 1];
+
+    protected function erp(): ErpCustomers
+    {
+        return app(ErpCustomers::class);
+    }
+
+    /** Perbarui nama/email/alamat member di sistem toko aktif (ERP: PATCH; tipe harga & toko asal diatur toko). */
+    public function updateBasic(int $customerId, array $data): void
+    {
+        if (NumartSource::erp()) {
+            $this->erp()->update($customerId, array_intersect_key($data, array_flip(['nama', 'email', 'alamat'])));
+
+            return;
+        }
+
+        $map = ['nama' => 'customer_nama', 'email' => 'customer_email', 'alamat' => 'customer_alamat', 'kategori' => 'customer_category'];
+        $update = [];
+        foreach ($data as $k => $v) {
+            if (isset($map[$k]) && $v !== null) {
+                $update[$map[$k]] = $v;
+            }
+        }
+        if ($update !== []) {
+            DB::connection('numart')->table('customer')->where('customer_id', $customerId)->update($update);
+        }
+    }
 
     public function normalizePhone(string $phone): string
     {
@@ -44,6 +73,10 @@ class NumartCustomerService
         $normalized = $this->normalizePhone($phone);
         if (strlen($normalized) < 10) {
             return collect();
+        }
+
+        if (NumartSource::erp()) {
+            return $this->erp()->findByPhone($normalized)->filter(fn ($c) => $this->isActiveCustomer($c))->values();
         }
 
         $suffix = substr($normalized, -10);
@@ -107,6 +140,15 @@ class NumartCustomerService
 
     public function findById(int $customerId, bool $requireActive = true): ?object
     {
+        if (NumartSource::erp()) {
+            if ($customerId < 1) {
+                return null;
+            }
+            $c = $this->erp()->find($customerId);
+
+            return $c && (! $requireActive || $this->isActiveCustomer($c)) ? $c : null;
+        }
+
         if (in_array($customerId, self::RESERVED_IDS, true)) {
             return null;
         }
@@ -207,6 +249,24 @@ class NumartCustomerService
             return;
         }
 
+        if (NumartSource::erp()) {
+            // O-2: berkas dikirim ke ERP (base64, ≤ 3 MB per foto), diputuskan di Backoffice ERP → Pelanggan.
+            try {
+                $disk = Storage::disk('public');
+                if ($ktpPath && $disk->exists($ktpPath)) {
+                    $this->erp()->submitVerification(
+                        $customerId,
+                        $disk->get($ktpPath),
+                        $businessPhotoPath && $disk->exists($businessPhotoPath) ? $disk->get($businessPhotoPath) : null,
+                    );
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            return;
+        }
+
         try {
             DB::connection('numart')
                 ->table('customer')
@@ -228,6 +288,12 @@ class NumartCustomerService
 
         if ($kartu === '') {
             return null;
+        }
+
+        if (NumartSource::erp()) {
+            $c = $this->erp()->findByCard($kartu);
+
+            return $c && $this->isActiveCustomer($c) ? $c : null;
         }
 
         return DB::connection('numart')
@@ -270,18 +336,54 @@ class NumartCustomerService
             }
         }
 
-        $generated = 'numart.'.(int) $customer->customer_id.'@belanja.local';
+        // Id ERP dan id POS lama tumpang-tindih → awalan berbeda agar email buatan tidak bentrok.
+        $prefix = NumartSource::erp() ? 'erp.' : 'numart.';
+        $generated = $prefix.(int) $customer->customer_id.'@belanja.local';
 
         if (! User::where('email', $generated)->exists()) {
             return $generated;
         }
 
-        return 'numart.'.(int) $customer->customer_id.'.'.time().'@belanja.local';
+        return $prefix.(int) $customer->customer_id.'.'.time().'@belanja.local';
     }
 
     public function userForCustomer(int $customerId): ?User
     {
-        return User::where('numart_customer_id', $customerId)->first();
+        $user = User::where(User::customerIdColumn(), $customerId)->first();
+        if ($user || ! NumartSource::erp()) {
+            return $user;
+        }
+
+        // Akun dari era POS lama belum punya erp_customer_id → tautkan sekali (kartu, lalu HP) agar tidak dibuatkan akun ganda.
+        $customer = $this->erp()->find($customerId);
+
+        return $customer ? $this->linkLegacyUser($customer) : null;
+    }
+
+    /**
+     * Tautkan akun lama (numart_customer_id = id POS) ke pelanggan ERP: cocok nomor kartu, atau — bila kartu kosong —
+     * satu-satunya akun dengan HP yang sama. Ambigu → tidak ditautkan (akan dibuat akun baru saat login, seperti member baru).
+     */
+    public function linkLegacyUser(object $customer): ?User
+    {
+        $erpId = (int) $customer->customer_id;
+        $unlinked = fn () => User::whereNull('erp_customer_id');
+        $kartu = strtoupper(trim((string) ($customer->customer_kartu ?? '')));
+        $user = $kartu !== '' ? $unlinked()->whereRaw('UPPER(TRIM(member_card)) = ?', [$kartu])->first() : null;
+
+        if (! $user) {
+            $phone = $this->normalizePhone((string) ($customer->customer_tlpn ?? ''));
+            $byPhone = strlen($phone) >= 10 ? $unlinked()->where('phone', $phone)->limit(2)->get() : collect();
+            $candidate = $byPhone->count() === 1 ? $byPhone->first() : null;
+            $candidateCard = strtoupper(trim((string) ($candidate->member_card ?? '')));
+            $user = $candidate && ($candidateCard === '' || $candidateCard === $kartu) ? $candidate : null;
+        }
+
+        if ($user) {
+            $user->forceFill(['erp_customer_id' => $erpId])->save();
+        }
+
+        return $user;
     }
 
     public function userForPhone(string $phone): ?User
@@ -299,7 +401,7 @@ class NumartCustomerService
         $verificationStatus = $this->verificationStatusFromCustomer($customer);
 
         $user->fill([
-            'numart_customer_id' => (int) $customer->customer_id,
+            User::customerIdColumn() => (int) $customer->customer_id,
             'name' => $customer->customer_nama,
             'phone' => $this->normalizePhone((string) $customer->customer_tlpn),
             'address' => (string) ($customer->customer_alamat ?? ''),
@@ -326,6 +428,12 @@ class NumartCustomerService
     public function createCustomerInNumart(string $name, string $phone, ?string $address = null, ?string $email = null): object
     {
         $normalized = $this->normalizePhone($phone);
+
+        if (NumartSource::erp()) {
+            // O-2: ERP membuat member retail, toko asal Gudang, kartu NUBLJ + id 8 digit (sama dengan aturan lama).
+            return $this->erp()->register($name, $normalized, $email, $address);
+        }
+
         $now = now('Asia/Jakarta')->format('Y-m-d H:i:s');
 
         $customerId = DB::connection('numart')->table('customer')->insertGetId([
@@ -368,6 +476,11 @@ class NumartCustomerService
      */
     public function purchaseHistory(int $customerId, int $limit = 30): Collection
     {
+        if (NumartSource::erp()) {
+            // Nota ERP saja; riwayat POS lama tidak dimigrasi (totalnya tetap ikut di poin).
+            return $this->erp()->history($customerId, $limit);
+        }
+
         return DB::connection('numart')
             ->table('invoice')
             ->where('invoice_customer', (string) $customerId)
@@ -391,6 +504,11 @@ class NumartCustomerService
      */
     public function customerPoints(int $customerId): int
     {
+        if (NumartSource::erp()) {
+            // O-2: poin dihitung ERP = floor((Σ total POS lama + Σ total ERP) ÷ 100.000)
+            return $this->erp()->points($customerId);
+        }
+
         $divisor = (int) config('marketplace.points_per_amount', 100_000);
         if ($divisor < 1) {
             $divisor = 100_000;

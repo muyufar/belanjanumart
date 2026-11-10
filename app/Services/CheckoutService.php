@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\StockHold;
+use App\Services\Erp\ErpOrders;
+use App\Support\NumartSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -51,6 +53,9 @@ class CheckoutService
 
             $qty = max(1, (int) $row['qty']);
             $unit = (int) $product->price;
+            if (NumartSource::erp() && $unit <= 0) {
+                throw new \InvalidArgumentException('Harga belum diatur untuk '.$product->barang_nama);
+            }
             $lineTotal = $unit * $qty;
             $subtotal += $lineTotal;
 
@@ -124,8 +129,10 @@ class CheckoutService
                 'tracking_status' => \App\Services\OrderTrackingService::AWAITING_PAYMENT,
                 'tracking_updated_at' => now(),
                 'expires_at' => $expires,
+                'numart_source' => NumartSource::current(),
             ]);
 
+            $erpLines = [];
             foreach ($itemsPayload as $payload) {
                 $p = $payload['product'];
                 OrderItem::create([
@@ -141,6 +148,12 @@ class CheckoutService
                     'konversi_isi' => (int) ($p->satuan_isi_1 ?? 1),
                 ]);
 
+                if (NumartSource::erp()) {
+                    $erpLines[] = ['barang_id' => (int) $p->barang_id, 'level' => (int) ($p->erp_level ?? 1), 'qty' => (string) $payload['qty']];
+
+                    continue;
+                }
+
                 StockHold::create([
                     'order_id' => $order->id,
                     'barang_id' => (int) $p->barang_id,
@@ -150,9 +163,25 @@ class CheckoutService
                 ]);
             }
 
+            if ($erpLines !== []) {
+                // Kunci stok di ERP (ganti StockHold lokal). Gagal → transaksi lokal dibatalkan, pesanan tidak dibuat.
+                app(ErpOrders::class)->reserve($order, $erpLines);
+            }
+
             if ($snapshot !== null) DB::table('shipping_quotes')->where('id', $quoteId)->update(['order_id' => $order->id]);
             return $order->fresh(['items', 'user']);
         });
+    }
+
+    /** Dipanggil webhook BRI saat VA lunas (sebelumnya metode ini belum ada → webhook BRI selalu error). */
+    public function markPaid(Order $order): Order
+    {
+        [$status, $payload] = app(OrderPaymentService::class)->markPaid($order);
+        if ($status >= 400) {
+            throw new \RuntimeException($payload['message'] ?? 'Gagal menandai lunas.');
+        }
+
+        return $order->fresh(['items', 'user']);
     }
 
     public function submitPaymentProof(Order $order, string $path): Order

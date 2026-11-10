@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\Erp\ErpBranchMap;
+use App\Support\NumartSource;
 
 class MemberContextService
 {
@@ -13,6 +15,14 @@ class MemberContextService
     ) {}
 
     public function memberCabangId(?User $user): int
+    {
+        $cabang = $this->rawMemberCabangId($user);
+
+        // ERP: hanya cabang dalam cakupan klien integrasi yang bisa dipakai untuk harga/stok/reservasi.
+        return NumartSource::erp() ? app(ErpBranchMap::class)->servable($cabang) : $cabang;
+    }
+
+    protected function rawMemberCabangId(?User $user): int
     {
         if (! $user) {
             return (int) config('marketplace.catalog_cabang_display', 0);
@@ -32,11 +42,11 @@ class MemberContextService
 
     public function customerForUser(?User $user): ?object
     {
-        if (! $user?->numart_customer_id) {
+        if (! $user?->numartCustomerId()) {
             return null;
         }
 
-        return $this->customers->findById((int) $user->numart_customer_id);
+        return $this->customers->findById((int) $user->numartCustomerId());
     }
 
     public function minOrderAmount(int $tier): int

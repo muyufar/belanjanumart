@@ -33,6 +33,16 @@ class AffiliateCommissionService
         }
 
         $order->loadMissing('items');
+
+        // TODO O-5: komisi = bagian dari margin (subtotal − HPP). ERP tidak membuka HPP ke mitra, jadi pesanan ERP
+        // tidak punya harga_beli → margin akan terbaca 100% dan komisi membengkak. Jangan ditebak: tahan akrual
+        // sampai keputusan O-5; pesanan ini bisa diakru belakangan (affiliate:accrue-pending melewati yang sudah ada).
+        if ($order->numart_source === 'erp' && $order->items->contains(fn ($item) => (int) $item->harga_beli <= 0)) {
+            \Illuminate\Support\Facades\Log::warning('Komisi afiliasi ditahan: HPP pesanan ERP tidak diketahui (O-5)', ['order' => $order->order_number]);
+
+            return null;
+        }
+
         $subtotal = (int) $order->subtotal;
         $cost = (int) $order->items->sum(fn ($item) => (int) $item->harga_beli * (int) $item->qty);
         $netMargin = max(0, $subtotal - $cost);

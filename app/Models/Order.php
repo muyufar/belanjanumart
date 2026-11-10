@@ -36,6 +36,7 @@ class Order extends Model
         'payment_proof_path',
         'payment_proof_at',
         'numart_invoice',
+        'numart_source',
         'paid_at',
         'expires_at',
     ];

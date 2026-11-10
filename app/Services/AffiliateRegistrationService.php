@@ -90,13 +90,14 @@ class AffiliateRegistrationService
                 throw new \InvalidArgumentException('Member sudah terhubung ke mitra kader lain.');
             }
 
-            DB::connection('numart')->table('customer')
-                ->where('customer_id', (int) $customer->customer_id)
-                ->update([
-                    'customer_nama' => $input['name'],
-                    'customer_alamat' => $input['address'] ?? $customer->customer_alamat,
-                    'customer_category' => (string) $tier,
-                ]);
+            // POS: nama, alamat, tipe harga ditulis ke `customer`. ERP: hanya nama & alamat — tipe harga member
+            // diatur toko di Backoffice ERP (API mitra tidak boleh mengubahnya), jadi tier mitra di sini hanya lokal
+            // sampai toko menyetel tipe yang sama di ERP (lihat NumartOrderSyncService: tier beda → nota tanpa pelanggan).
+            $this->customers->updateBasic((int) $customer->customer_id, [
+                'nama' => $input['name'],
+                'alamat' => $input['address'] ?? $customer->customer_alamat,
+                'kategori' => (string) $tier,
+            ]);
 
             $user = $existingUser ?? $this->customers->loginOrCreateUserFromCustomer($customer);
             $user->fill([
@@ -113,7 +114,7 @@ class AffiliateRegistrationService
                 [
                     'affiliate_user_id' => $kader->id,
                     'referred_user_id' => $user->id,
-                    'numart_customer_id' => (int) $customer->customer_id,
+                    User::customerIdColumn() => (int) $customer->customer_id,
                     'partner_kind' => $kind,
                     'customer_name' => $input['name'],
                     'customer_phone' => $this->customers->normalizePhone($input['phone']),
@@ -206,7 +207,7 @@ class AffiliateRegistrationService
             [
                 'affiliate_user_id' => $kader->id,
                 'referred_user_id' => $member->id,
-                'numart_customer_id' => (int) ($member->numart_customer_id ?? 0) ?: null,
+                User::customerIdColumn() => $member->numartCustomerId(),
                 'partner_kind' => $member->partner_kind ?? 'referral',
                 'customer_name' => $member->name,
                 'customer_phone' => $member->phone,
