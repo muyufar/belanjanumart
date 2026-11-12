@@ -64,7 +64,8 @@ class ErpShipping
 
         return (object) ['id' => $q['id'], 'status' => $q['status'], 'branch_id' => $posCabang, 'fingerprint' => $q['sidik'], 'expires_at' => $q['berlaku_sampai'],
             'request_json' => json_encode(['name' => $r['nama'], 'phone' => $r['hp'], 'address' => $r['alamat'], 'payment_method' => $r['metode_bayar'], 'service' => $r['layanan'],
-                'customer_lat' => $r['lat'], 'customer_lng' => $r['lng'], 'basket' => ['subtotal' => $q['keranjang']['subtotal'],
+                // akurasi GPS ikut sidik (ShippingService::context) → wajib dikembalikan, kalau tidak penawaran tidak pernah "siap" di checkout
+                'customer_lat' => $r['lat'], 'customer_lng' => $r['lng'], 'gps_accuracy' => isset($r['akurasi']) ? (float) $r['akurasi'] : null, 'basket' => ['subtotal' => $q['keranjang']['subtotal'],
                     'lines' => array_map(fn ($l) => ['code' => $l['kode'], 'name' => $l['nama'], 'qty' => $l['qty'], 'conversion' => $l['isi'], 'price' => $l['harga']], $q['keranjang']['baris'])]]),
             'snapshot_json' => $q['snapshot'] ? json_encode($q['snapshot']) : null];
     }

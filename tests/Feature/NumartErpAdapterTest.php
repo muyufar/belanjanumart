@@ -45,6 +45,9 @@ class NumartErpAdapterTest extends TestCase
     /** ERP palsu: kampanye ongkir cabang aktif & wajib (O-5). */
     private bool $shippingRequired = false;
 
+    /** ERP palsu: akurasi GPS yang tersimpan di permintaan ongkir. */
+    private ?float $quoteAccuracy = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -141,7 +144,7 @@ class NumartErpAdapterTest extends TestCase
     private function erpQuote(): array
     {
         return ['id' => 7, 'status' => 'approved', 'siap' => true, 'sidik' => str_repeat('a', 64), 'pesanan' => null, 'berlaku_sampai' => gmdate('Y-m-d H:i:s', time() + 3600),
-            'permintaan' => ['nama' => 'Pembeli', 'hp' => '081200000000', 'alamat' => 'Jl. Uji', 'metode_bayar' => 'transfer', 'layanan' => 'direct', 'lat' => -7.6, 'lng' => 110.2, 'akurasi' => null],
+            'permintaan' => ['nama' => 'Pembeli', 'hp' => '081200000000', 'alamat' => 'Jl. Uji', 'metode_bayar' => 'transfer', 'layanan' => 'direct', 'lat' => -7.6, 'lng' => 110.2, 'akurasi' => $this->quoteAccuracy],
             'keranjang' => ['baris' => [['kode' => 'BRS5', 'nama' => 'Beras 5 kg', 'qty' => 2, 'isi' => 1, 'harga' => 63000]], 'subtotal' => 126000],
             'snapshot' => ['route' => ['service' => 'direct', 'start' => gmdate('Y-m-d H:i:s', time() + 86400), 'end' => gmdate('Y-m-d H:i:s', time() + 93600)],
                 'money' => ['fare' => 12000, 'subsidy' => 2000, 'customer_fee' => 10000]]];
@@ -324,6 +327,24 @@ class NumartErpAdapterTest extends TestCase
 
         $svc->cancel(7, $user);
         $this->assertCount(1, $this->callsTo('/ongkir/permintaan/7', 'DELETE'));
+    }
+
+    /** Regresi E2E 2026-11-12: akurasi GPS ikut sidik; tanpa dikembalikan dari ERP penawaran tidak pernah "siap" di checkout. */
+    public function test_quote_request_round_trips_gps_accuracy_so_checkout_fingerprint_matches(): void
+    {
+        $this->shippingRequired = true;
+        $this->quoteAccuracy = 25.0;
+        $user = User::factory()->create(['price_tier' => 0]);
+        $svc = app(ShippingService::class);
+        $cart = [['barang_kode' => 'BRS5', 'qty' => 2]];
+        $ctx = $svc->context($cart, $user, ['name' => 'Pembeli', 'phone' => '081200000000', 'address' => 'Jl. Uji', 'payment_method' => 'transfer',
+            'shipping_service' => 'direct', 'customer_lat' => '-7.6000', 'customer_lng' => '110.2000', 'gps_accuracy' => '25', 'gps_valid' => '1']);
+
+        $saved = json_decode($svc->quotes($user, 0)->first()->request_json, true);   // seperti CheckoutController::create
+        $again = $svc->context($cart, $user, $saved + ['shipping_service' => $saved['service']]);
+
+        $this->assertEquals(25, $saved['gps_accuracy']);
+        $this->assertSame($ctx['fingerprint'], $again['fingerprint']);
     }
 
     public function test_failed_order_releases_consumed_erp_shipping_quote(): void

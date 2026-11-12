@@ -109,10 +109,11 @@
                         </p>
                         <p class="checkout-gps__coords muted" id="checkout-gps-coords"></p>
                         <a href="#" target="_blank" rel="noopener" class="checkout-gps__map" id="checkout-gps-map" hidden>Lihat di peta</a>
-                        <input type="hidden" name="customer_lat" id="customer_lat" value="{{ old('customer_lat') }}">
-                        <input type="hidden" name="customer_lng" id="customer_lng" value="{{ old('customer_lng') }}">
-                        <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ old('gps_accuracy') }}">
-                        <input type="hidden" name="gps_valid" id="gps_valid" value="{{ old('gps_valid', '0') }}">
+                        {{-- Penawaran siap: titik GPS ikut sidik penawaran → pakai titik yang sama, jangan minta ambil ulang (koordinat baru = sidik beda). --}}
+                        <input type="hidden" name="customer_lat" id="customer_lat" value="{{ old('customer_lat', $quoteReady ? $quoteData['customer_lat'] : '') }}">
+                        <input type="hidden" name="customer_lng" id="customer_lng" value="{{ old('customer_lng', $quoteReady ? $quoteData['customer_lng'] : '') }}">
+                        <input type="hidden" name="gps_accuracy" id="gps_accuracy" value="{{ old('gps_accuracy', $quoteReady ? ($quoteData['gps_accuracy'] ?? '') : '') }}">
+                        <input type="hidden" name="gps_valid" id="gps_valid" value="{{ old('gps_valid', $quoteReady ? '1' : '0') }}">
                     </div>
 
                     <p style="font-weight:700;margin:16px 0 8px">Metode pembayaran</p>
