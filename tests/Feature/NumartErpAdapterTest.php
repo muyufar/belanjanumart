@@ -28,6 +28,8 @@ use Tests\TestCase;
  */
 class NumartErpAdapterTest extends TestCase
 {
+    private bool $erpRejects = false;
+
     use RefreshDatabase;
 
     private const URL = 'http://erp.test';
@@ -69,6 +71,9 @@ class NumartErpAdapterTest extends TestCase
 
     private function fakeErp(HttpRequest $r)
     {
+        if ($this->erpRejects) {
+            return Http::response(["error" => ["code" => "INVALID_SIGNATURE", "message" => "Autentikasi integrasi gagal."]], 401);
+        }
         $parts = parse_url($r->url());
         $path = $parts['path'];
         parse_str($parts['query'] ?? '', $query);
@@ -208,6 +213,25 @@ class NumartErpAdapterTest extends TestCase
 
         $this->assertSame(14, $svc->customerPoints(77));
         $this->assertSame('GDG-2611-0001', $svc->purchaseHistory(77)->first()->penjualan_invoice);
+    }
+
+    public function test_login_page_signs_in_erp_member_by_card(): void
+    {
+        $this->post('/masuk', ['card_number' => 'nublj00000077'])->assertRedirect();
+
+        $this->assertAuthenticated();
+        $this->assertSame(77, (int) auth()->user()->erp_customer_id);
+    }
+
+    public function test_login_shows_friendly_error_instead_of_500_when_erp_rejects(): void
+    {
+        $this->erpRejects = true;   // klien ditolak ERP (ID/secret salah) — sebelumnya halaman 500
+
+        $this->from('/masuk')->post('/masuk', ['card_number' => 'NUBLJ00000077'])
+            ->assertRedirect('/masuk')
+            ->assertSessionHasErrors(['card_number' => 'Layanan member sedang bermasalah, silakan coba lagi beberapa saat lagi.']);
+
+        $this->assertGuest();
     }
 
     public function test_register_new_member_goes_to_erp(): void
