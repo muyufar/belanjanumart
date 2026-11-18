@@ -81,6 +81,9 @@
                 @endif
 
                 @if(in_array($order->status, ['pending_transfer', 'proof_submitted'], true))
+                    @if($order->status === 'pending_transfer' && $order->tracking_note)
+                        <p class="toast toast--err" style="margin-top:12px">{{ $order->tracking_note }}</p>
+                    @endif
                     @if($order->payment_proof_path)
                         <p class="muted" style="margin-top:12px;text-align:center">Bukti transfer sudah diupload.</p>
                     @else

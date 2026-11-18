@@ -102,7 +102,7 @@ class CheckoutService
         $orderNumber = 'MP-'.strtoupper(Str::random(10));
         $consumed = false;
         try {
-        return DB::transaction(function () use ($input, $buyer, $placedById, $referralCode, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext, $customerLat, $customerLng, $orderNumber, &$consumed) {
+        $order = DB::transaction(function () use ($input, $buyer, $placedById, $referralCode, $tier, $cabang, $branchLabel, $subtotal, $shipping, $grand, $expires, $itemsPayload, $paymentMethod, $status, $quoteId, $shippingContext, $customerLat, $customerLng, $orderNumber, &$consumed) {
             $snapshot = null;
             if ($shippingContext !== null) {
                 $snapshot = $this->delivery->consume($quoteId, $buyer, $cabang, $shippingContext['fingerprint'], $orderNumber);
@@ -175,6 +175,11 @@ class CheckoutService
             if ($snapshot !== null && ! NumartSource::erp()) DB::table('shipping_quotes')->where('id', $quoteId)->update(['order_id' => $order->id]);
             return $order->fresh(['items', 'user']);
         });
+        if ($order->payment_method === 'cod') {
+            app(OrderPaymentService::class)->pushToErp($order);   // COD → antrean Pembayaran Online di Backoffice ERP
+        }
+
+        return $order;
         } catch (\Throwable $e) {
             // Penawaran ERP sudah dipakai tetapi pesanan lokal gagal dibuat → lepaskan agar pembeli bisa mencoba lagi.
             if ($consumed) {
@@ -210,6 +215,7 @@ class CheckoutService
             'payment_proof_at' => now(),
             'status' => 'proof_submitted',
         ]);
+        app(OrderPaymentService::class)->pushToErp($order);   // bukti → antrean Pembayaran Online di Backoffice ERP
 
         return $order->fresh(['items', 'user']);
     }

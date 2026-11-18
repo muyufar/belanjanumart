@@ -76,6 +76,18 @@ class NumartErpClient
     }
 
     /**
+     * Klaim pembayaran → antrean verifikasi Backoffice ERP (Operasional → Pembayaran Online). Dikirim saat bukti transfer
+     * diunggah / pesanan COD dibuat; aman diulang (bukti baru = klaim kembali "menunggu"). Diterima toko → webhook
+     * `pesanan.dipenuhi`; ditolak → webhook `pembayaran.ditolak` {nomor_pesanan, metode, alasan}.
+     *
+     * @param  array{metode:string, total:string, pembeli?:string|null, hp?:string|null, bukti_url?:string|null, nota:array}  $data  nota = body fulfill()
+     */
+    public function submitPayment(string $orderNo, array $data): array
+    {
+        return $this->send('PUT', '/api/v1/integrasi/pesanan/'.rawurlencode($orderNo).'/pembayaran', $data)['data'];
+    }
+
+    /**
      * Status pengiriman & linimasa (O-1) — ganti OrderTrackingService::syncFromNumartInvoice (invoice_kurir POS lama).
      * `status_belanja` sudah memakai kunci OrderTrackingService (preparing/queued_for_delivery/out_for_delivery/delivered).
      * Perubahan juga dikirim lewat webhook `pengiriman.diperbarui`. Alamat kirim dikirim di fulfill(): ['pengiriman' => ['penerima','hp','alamat','catatan']].

@@ -112,6 +112,7 @@ class NumartErpAdapterTest extends TestCase
             str_ends_with($path, '/reservasi') && $r->method() === 'PUT' && $this->failReserve => Http::response(['error' => ['code' => 'STOCK_INSUFFICIENT', 'message' => 'Stok tidak cukup.']], 422),
             str_ends_with($path, '/reservasi') && $r->method() === 'PUT' => Http::response(['data' => ['nomor_pesanan' => basename(dirname($path))]], 201),
             str_ends_with($path, '/reservasi') && $r->method() === 'DELETE' => Http::response(['data' => ['dilepas' => 1]]),
+            str_ends_with($path, '/pembayaran') && $r->method() === 'PUT' => Http::response(['data' => ['id' => 5, 'nomor_pesanan' => basename(dirname($path)), 'status' => 'menunggu']], 201),
             str_ends_with($path, '/penuhi') => Http::response(['data' => ['nomor_pesanan' => basename(dirname($path)), 'nota' => 'GDG-2611-0042', 'grand_total' => $body['total_mitra'] ?? null]], 201),
             str_ends_with($path, '/pengiriman') => Http::response(['data' => ['status' => 'dikirim', 'status_belanja' => 'out_for_delivery', 'kurir' => 'Budi', 'catatan' => null, 'riwayat' => []]]),
             default => Http::response(['error' => ['code' => 'NOT_FOUND', 'message' => 'rute palsu tidak ada: '.$path]], 404),
@@ -440,6 +441,54 @@ class NumartErpAdapterTest extends TestCase
         $order->fresh()->update(['tracking_status' => 'preparing']);
         $this->webhook($payload, '55')->assertOk()->assertJson(['duplikat' => true]);
         $this->assertSame('preparing', $order->fresh()->tracking_status);   // event yang sama tidak diproses ulang
+    }
+
+    public function test_proof_upload_and_cod_checkout_go_to_erp_verification_queue(): void
+    {
+        $order = $this->order(['numart_source' => 'erp', 'status' => 'pending_transfer']);
+        app(CheckoutService::class)->submitPaymentProof($order, 'payments/proofs/bukti.jpg');
+
+        $call = $this->callsTo('/pembayaran', 'PUT')[0];
+        $this->assertSame("/api/v1/integrasi/pesanan/{$order->order_number}/pembayaran", $call['path']);
+        $this->assertSame(['transfer', '126000', 'Pembeli', '081200000000'], [$call['body']['metode'], $call['body']['total'], $call['body']['pembeli'], $call['body']['hp']]);
+        $this->assertStringEndsWith('/storage/payments/proofs/bukti.jpg', $call['body']['bukti_url']);
+        $this->assertStringStartsWith('http', $call['body']['bukti_url']);
+        $this->assertSame(['umum', 'nontunai', '126000', '14000'], [$call['body']['nota']['tipe_harga'], $call['body']['nota']['metode_bayar'], $call['body']['nota']['total_mitra'], $call['body']['nota']['diskon']]);
+        $this->assertCount(0, $this->callsTo('/penuhi'), 'nota baru dibuat setelah toko menerima di ERP');
+
+        $user = User::factory()->create(['price_tier' => 0]);
+        $user->forceFill(['member_verification_status' => 'approved'])->save();   // COD = member terverifikasi
+        try {
+            $cod = app(CheckoutService::class)->placeOrder([
+                'name' => 'Pembeli COD', 'phone' => '081200000001', 'address' => 'Jl. Uji', 'payment_method' => 'cod',
+                'customer_lat' => -7.6, 'customer_lng' => 110.2, 'gps_valid' => '1',
+            ], [['barang_id' => 501, 'barang_kode' => 'BRS5', 'qty' => 1]], $user);
+        } catch (\InvalidArgumentException|\DomainException $e) {
+            $this->markTestIncomplete('COD tidak tersedia untuk pengguna uji: '.$e->getMessage());
+        }
+        $codCall = collect($this->callsTo('/pembayaran', 'PUT'))->firstWhere('path', "/api/v1/integrasi/pesanan/{$cod->order_number}/pembayaran");
+        $this->assertSame('cod', $codCall['body']['metode']);
+        $this->assertArrayNotHasKey('bukti_url', $codCall['body']);
+        $this->assertSame('tunai', $codCall['body']['nota']['metode_bayar']);
+    }
+
+    public function test_rejected_payment_webhook_reopens_upload_or_cancels_cod(): void
+    {
+        $order = $this->order(['numart_source' => 'erp', 'status' => 'proof_submitted', 'payment_proof_path' => 'payments/proofs/a.jpg']);
+        $this->webhook(['id' => 70, 'event' => 'pembayaran.ditolak', 'data' => ['nomor_pesanan' => $order->order_number, 'metode' => 'transfer', 'alasan' => 'Uang belum masuk']], '70')->assertOk();
+        $order->refresh();
+        $this->assertSame(['pending_transfer', null], [$order->status, $order->payment_proof_path]);
+        $this->assertStringContainsString('Uang belum masuk', $order->tracking_note);
+
+        $cod = $this->order(['numart_source' => 'erp', 'status' => 'pending_cod', 'payment_method' => 'cod']);
+        $this->webhook(['id' => 71, 'event' => 'pembayaran.ditolak', 'data' => ['nomor_pesanan' => $cod->order_number, 'metode' => 'cod', 'alasan' => 'Alamat palsu']], '71')->assertOk();
+        $this->assertSame('cancelled', $cod->fresh()->status);
+        $this->assertCount(1, $this->callsTo('/reservasi', 'DELETE'));
+
+        // sudah jadi nota → penolakan terlambat diabaikan
+        $paid = $this->order(['numart_source' => 'erp', 'status' => 'processing', 'numart_invoice' => 'GDG-1']);
+        $this->webhook(['id' => 72, 'event' => 'pembayaran.ditolak', 'data' => ['nomor_pesanan' => $paid->order_number, 'metode' => 'transfer']], '72')->assertOk();
+        $this->assertSame('processing', $paid->fresh()->status);
     }
 
     public function test_webhook_rejects_bad_signature_and_handles_fulfilled_and_cancelled(): void

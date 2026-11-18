@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AffiliateCommission;
 use App\Models\Order;
 use App\Services\Erp\ErpOrders;
+use App\Support\NumartSource;
 
 /**
  * Konfirmasi lunas & pembatalan pesanan — satu tempat untuk API POS lama (confirm-payment), admin belanjanumart,
@@ -70,6 +71,48 @@ class OrderPaymentService
 
             return [500, ['success' => false, 'message' => 'Gagal membuat nota di toko: '.$e->getMessage()]];
         }
+    }
+
+    /**
+     * Kirim klaim bayar ke antrean verifikasi Backoffice ERP (NUMART_SOURCE=erp). Gagal tidak menggagalkan pembeli:
+     * dicatat, dan bisa dikirim ulang dengan `php artisan erp:kirim-pembayaran`.
+     */
+    public function pushToErp(Order $order): bool
+    {
+        if (! NumartSource::erp() || $order->numart_invoice || ! in_array($order->status, ['proof_submitted', 'pending_cod'], true)) {
+            return false;
+        }
+        try {
+            app(ErpOrders::class)->submitPayment($order);
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
+    }
+
+    /** Webhook ERP `pembayaran.ditolak`: transfer → pembeli unggah bukti ulang; COD → pesanan dibatalkan. */
+    public function rejectedByStore(Order $order, string $method, ?string $reason): string
+    {
+        if ($order->numart_invoice || in_array($order->status, ['cancelled', 'processing', 'paid', 'shipped', 'completed'], true)) {
+            return 'diabaikan (status '.$order->status.')';
+        }
+        if ($method === 'cod' || $order->payment_method === 'cod') {
+            $this->cancel($order, 'Pesanan ditolak toko'.($reason ? ' — '.$reason : ''));
+
+            return 'pesanan COD dibatalkan';
+        }
+        $order->update([
+            'status' => 'pending_transfer',
+            'payment_proof_path' => null,
+            'payment_proof_at' => null,
+            'tracking_note' => 'Bukti pembayaran ditolak toko'.($reason ? ' — '.$reason : '').'. Silakan unggah bukti yang benar.',
+            'tracking_updated_at' => now(),
+        ]);
+
+        return 'bukti ditolak, menunggu unggah ulang';
     }
 
     /** Batalkan pesanan yang belum lunas: lepas reservasi stok ERP (StockHold lokal POS lama tidak pernah dilepas otomatis). */

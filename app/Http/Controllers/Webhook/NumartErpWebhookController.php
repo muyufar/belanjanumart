@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\AffiliateCommissionService;
 use App\Services\NumartErpClient;
 use App\Services\OrderPaymentService;
 use App\Services\OrderTrackingService;
@@ -84,8 +85,13 @@ class NumartErpWebhookController extends Controller
                     $update['paid_at'] = now();
                 }
                 $order->update($update);
+                // Diterima dari Backoffice ERP (Pembayaran Online) → komisi afiliasi seperti konfirmasi lunas di sini (idempoten).
+                app(AffiliateCommissionService::class)->accrueForOrder($order->fresh());
 
                 return 'nota '.$update['numart_invoice'];
+
+            case 'pembayaran.ditolak':
+                return $payments->rejectedByStore($order, (string) ($data['metode'] ?? ''), $data['alasan'] ?? null);
 
             case 'pesanan.dibatalkan':
                 $payments->cancelledByStore($order, $data['alasan'] ?? null);

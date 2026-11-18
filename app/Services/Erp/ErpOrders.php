@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Services\NumartErpClient;
 use App\Services\PricingService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Siklus pesanan di ERP: reservasi (checkout) → penuhi (lunas → nota + stok + jurnal + pengiriman) | lepas (batal).
@@ -39,13 +40,39 @@ class ErpOrders
         return (int) ($this->erp->release($order->order_number)['dilepas'] ?? 0);
     }
 
-    /**
-     * Pesanan lunas → nota ERP. Pesanan peralihan (dibuat saat NUMART_SOURCE=pos, belum punya reservasi ERP)
-     * direservasi dulu berdasarkan kode barang.
-     *
-     * @return array data nota ERP (nota, grand_total, baris, …)
-     */
+    /** Pesanan lunas → nota ERP. @return array data nota ERP (nota, grand_total, baris, …) */
     public function fulfill(Order $order): array
+    {
+        return $this->erp->fulfill($order->order_number, $this->fulfillPayload($order));
+    }
+
+    /**
+     * Bukti transfer diunggah / pesanan COD dibuat → antrean "Pembayaran Online" di Backoffice ERP. Toko menerima → ERP
+     * membuat nota dengan data ini dan mengirim webhook `pesanan.dipenuhi`; menolak → webhook `pembayaran.ditolak`.
+     */
+    public function submitPayment(Order $order): array
+    {
+        $payload = $this->fulfillPayload($order);
+        $proof = $order->payment_proof_path ? Storage::disk('public')->url($order->payment_proof_path) : null;
+        if ($proof && ! str_starts_with($proof, 'http')) {
+            $proof = rtrim((string) config('app.url'), '/').'/'.ltrim($proof, '/');
+        }
+
+        return $this->erp->submitPayment($order->order_number, array_filter([
+            'metode' => $order->payment_method === 'cod' ? 'cod' : 'transfer',
+            'total' => (string) (int) $order->grand_total,
+            'pembeli' => $order->customer_name,
+            'hp' => $order->customer_phone,
+            'bukti_url' => $proof,
+            'nota' => $payload,
+        ], fn ($v) => $v !== null));
+    }
+
+    /**
+     * Data nota untuk ERP. Pesanan peralihan (dibuat saat NUMART_SOURCE=pos, belum punya reservasi ERP)
+     * direservasi dulu berdasarkan kode barang.
+     */
+    private function fulfillPayload(Order $order): array
     {
         $order->loadMissing(['items', 'user', 'payment']);
         $cabang = (int) $order->fulfillment_cabang;
@@ -71,7 +98,7 @@ class ErpOrders
         }
         $discount = max(0, $erpSubtotal - (int) $order->subtotal) + (int) $order->discount;
 
-        return $this->erp->fulfill($order->order_number, array_filter([
+        return array_filter([
             'tipe_harga' => ErpCatalog::tierName($tier),
             'metode_bayar' => $order->payment_method === 'cod' ? 'tunai' : 'nontunai',
             'pelanggan_id' => $this->customerFor($order, $tier),
@@ -85,7 +112,7 @@ class ErpOrders
                 'alamat' => $order->customer_address,
                 'catatan' => 'Pesanan online '.$order->order_number,
             ]),
-        ], fn ($v) => $v !== null));
+        ], fn ($v) => $v !== null);
     }
 
     /** Status kirim O-1: GET /pesanan/{nomor}/pengiriman — null bila belum ada (belum dipenuhi). */
