@@ -7,6 +7,7 @@ use App\Services\Erp\ErpCustomers;
 use App\Support\NumartSource;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class NumartCustomerService
@@ -315,15 +316,40 @@ class NumartCustomerService
                 'name' => $customer->customer_nama,
                 'email' => $this->emailForUser($customer),
                 'password' => bcrypt(str()->random(32)),
-                'phone' => $this->normalizePhone((string) $customer->customer_tlpn),
+                'phone' => $this->freeUniqueValue('phone', $this->normalizePhone((string) $customer->customer_tlpn), null, $customer),
                 'must_change_password' => false,
             ]);
         }
 
-        $user->member_card = strtoupper(trim((string) ($customer->customer_kartu ?? '')));
         $user->member_cabang = (int) ($customer->customer_cabang ?? 0);
 
         return $this->applyCustomerToUser($user, $customer);
+    }
+
+    /**
+     * users.phone & users.member_card unik, tetapi data member (terutama ERP hasil migrasi POS) bisa punya
+     * satu orang dengan dua kartu ber-HP sama. Nilai yang sudah dipakai akun lain tidak ditimpa/digandakan:
+     * kembalikan null (akun tetap bisa login) dan catat agar admin merapikan data member.
+     */
+    protected function freeUniqueValue(string $column, ?string $value, ?User $user, object $customer): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value === '' ? null : $value;
+        }
+
+        $taken = User::where($column, $value)->when($user?->exists, fn ($q) => $q->whereKeyNot($user->id))->first(['id']);
+        if (! $taken) {
+            return $value;
+        }
+
+        Log::warning("Member: {$column} sudah dipakai akun lain — tidak disalin ke akun ini", [
+            'customer_id' => (int) ($customer->customer_id ?? 0),
+            'kartu' => (string) ($customer->customer_kartu ?? ''),
+            'user_id' => $user?->id,
+            'dipakai_user_id' => $taken->id,
+        ]);
+
+        return $user?->exists ? $user->getOriginal($column) : null;
     }
 
     public function emailForUser(object $customer, ?string $fallback = null): string
@@ -340,8 +366,13 @@ class NumartCustomerService
         $prefix = NumartSource::erp() ? 'erp.' : 'numart.';
         $generated = $prefix.(int) $customer->customer_id.'@belanja.local';
 
-        if (! User::where('email', $generated)->exists()) {
+        // $fallback = email akun ini sekarang; email buatannya sendiri tidak dihitung bentrok (tanpa ini email berganti tiap login).
+        if ($generated === $fallback || ! User::where('email', $generated)->exists()) {
             return $generated;
+        }
+
+        if ($fallback !== null && str_starts_with($fallback, $prefix.(int) $customer->customer_id.'.')) {
+            return $fallback;
         }
 
         return $prefix.(int) $customer->customer_id.'.'.time().'@belanja.local';
@@ -403,10 +434,10 @@ class NumartCustomerService
         $user->fill([
             User::customerIdColumn() => (int) $customer->customer_id,
             'name' => $customer->customer_nama,
-            'phone' => $this->normalizePhone((string) $customer->customer_tlpn),
+            'phone' => $this->freeUniqueValue('phone', $this->normalizePhone((string) $customer->customer_tlpn), $user, $customer),
             'address' => (string) ($customer->customer_alamat ?? ''),
             'price_tier' => $this->priceTierFromCustomer($customer),
-            'member_card' => strtoupper(trim((string) ($customer->customer_kartu ?? ''))),
+            'member_card' => $this->freeUniqueValue('member_card', strtoupper(trim((string) ($customer->customer_kartu ?? ''))), $user, $customer),
             'member_cabang' => (int) ($customer->customer_cabang ?? 0),
             'member_verification_status' => $verificationStatus,
             'ktp_path' => $customer->customer_ktp_path ?? $user->ktp_path,

@@ -234,6 +234,32 @@ class NumartErpAdapterTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_login_works_when_erp_has_duplicate_member_with_same_phone(): void
+    {
+        // Data nyata ERP: satu orang punya dua kartu (NUDKNG… & "139") dengan HP sama beda format (62… / 08…).
+        $this->customers[3681] = $this->erpCustomer(3681, 'Yusuf', '6282340715548', 'NUDKNG0000111', 'grosir', 2);
+        $this->customers[5742] = $this->erpCustomer(5742, 'Yusuf', '082340715548', '139', 'retail', 6);
+        $other = User::factory()->create(['erp_customer_id' => 5742, 'member_card' => '139', 'phone' => '6282340715548']);
+
+        $this->post('/masuk', ['card_number' => 'NUDKNG0000111'])->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertAuthenticated();
+        $user = auth()->user();
+        $this->assertNotSame($other->id, $user->id);
+        $this->assertSame(3681, (int) $user->erp_customer_id);
+        $this->assertSame('NUDKNG0000111', $user->member_card);
+        $this->assertNull($user->phone);                                    // HP sudah dipakai akun kartu 139
+        $this->assertSame('6282340715548', $other->fresh()->phone);
+
+        // Login ulang: akun & email buatan tetap sama (tidak dibuat ulang tiap login).
+        $email = $user->email;
+        auth()->logout();
+        $this->post('/masuk', ['card_number' => 'NUDKNG0000111'])->assertSessionHasNoErrors();
+        $this->assertSame($user->id, auth()->id());
+        $this->assertSame($email, auth()->user()->email);
+        $this->assertSame(2, User::count());
+    }
+
     public function test_register_new_member_goes_to_erp(): void
     {
         $c = app(NumartCustomerService::class)->createCustomerInNumart('Budi', '0812 9999 0000', 'Salam');
