@@ -134,6 +134,12 @@ class NumartErpClient
         return $this->send('PATCH', '/api/v1/integrasi/pelanggan/'.$id, $data)['data'];
     }
 
+    /** Mitra kader: member memakai kode referral kader → jadi mitra binaan jenis referral. Kode salah/sudah terhubung → RuntimeException 422. */
+    public function applyReferral(int $id, string $code): array
+    {
+        return $this->send('POST', '/api/v1/integrasi/pelanggan/'.$id.'/referral', ['kode' => $code])['data'];
+    }
+
     public function customerHistory(int $id, int $limit = 30): array
     {
         return $this->send('GET', '/api/v1/integrasi/pelanggan/'.$id.'/riwayat?batas='.$limit)['data'];

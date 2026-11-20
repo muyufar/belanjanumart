@@ -29,6 +29,10 @@ class AffiliateKaderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (\App\Support\NumartSource::erp()) {
+            return back()->with('error', 'Mitra kader kini dikelola di Backoffice NUMART ERP (Keuangan → Mitra Kader).');
+        }
+
         $validated = $request->validate([
             'member_card' => 'required_without:name|nullable|string|max:32',
             'name' => 'required_without:member_card|nullable|string|max:200',
@@ -67,6 +71,9 @@ class AffiliateKaderController extends Controller
     {
         if (! $user->isAffiliateKader()) {
             abort(404);
+        }
+        if (\App\Support\NumartSource::erp()) {
+            return back()->with('error', 'Aktif/nonaktif kader kini diatur di Backoffice NUMART ERP.');
         }
 
         if ($user->affiliate_active) {

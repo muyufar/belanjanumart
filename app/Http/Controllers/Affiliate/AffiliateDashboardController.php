@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AffiliateCommissionService;
 use App\Services\AffiliateRegistrationService;
 use App\Services\AffiliateSettingsService;
+use App\Support\NumartSource;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,6 +24,10 @@ class AffiliateDashboardController extends Controller
 
     public function index(Request $request): View
     {
+        if (NumartSource::erp()) {
+            return $this->movedToErp();
+        }
+
         $kader = $request->user();
         $totals = $this->commissions->totalsForAffiliate($kader->id);
 
@@ -50,6 +55,10 @@ class AffiliateDashboardController extends Controller
 
     public function referrals(Request $request): View
     {
+        if (NumartSource::erp()) {
+            return $this->movedToErp();
+        }
+
         $kader = $request->user();
 
         $members = User::query()
@@ -66,6 +75,10 @@ class AffiliateDashboardController extends Controller
 
     public function orders(Request $request): View
     {
+        if (NumartSource::erp()) {
+            return $this->movedToErp();
+        }
+
         $kader = $request->user();
         $memberIds = User::where('affiliate_kader_id', $kader->id)->pluck('id');
 
@@ -89,10 +102,20 @@ class AffiliateDashboardController extends Controller
 
     public function createReferral(Request $request): View
     {
+        if (NumartSource::erp()) {
+            return $this->movedToErp();
+        }
+
         return view('affiliate.register-mitra', [
             'kader' => $request->user(),
             'cartCount' => 0,
         ]);
+    }
+
+    /** Mode ERP: panel kader pindah ke Backoffice NUMART ERP (menu Kader Saya). */
+    protected function movedToErp(): View
+    {
+        return view('affiliate.moved', ['cartCount' => 0]);
     }
 
     public function storeReferral(Request $request): RedirectResponse

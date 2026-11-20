@@ -41,6 +41,11 @@ class ErpCustomers
         }
     }
 
+    public function applyReferral(int $id, string $code): object
+    {
+        return $this->toRow($this->erp->applyReferral($id, $code));
+    }
+
     /** Daftar member baru; HP sudah terdaftar (422) → kembalikan member yang ada. */
     public function register(string $name, string $phone, ?string $email, ?string $address): object
     {
@@ -107,6 +112,12 @@ class ErpCustomers
             // Foto KTP/warung disimpan privat di ERP; tidak ada path lokal.
             'customer_ktp_path' => null,
             'customer_foto_warung_path' => null,
+            // Mitra kader dikelola ERP: pembina member ini & — bila dia kader — kode referralnya
+            'kader_dari_erp' => array_key_exists('kader', $c),   // ERP lama (sebelum mitra kader pindah) tidak mengirim ini
+            'kader_pelanggan_id' => isset($c['kader']['pelanggan_id']) ? (int) $c['kader']['pelanggan_id'] : null,
+            'jenis_mitra' => $c['jenis_mitra'] ?? null,
+            'nama_warung' => $c['nama_warung'] ?? null,
+            'kode_kader' => $c['kode_kader'] ?? null,
             'erp' => true,
         ];
     }

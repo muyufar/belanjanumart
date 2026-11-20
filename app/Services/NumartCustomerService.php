@@ -448,9 +448,41 @@ class NumartCustomerService
             $user->email = $this->emailForUser($customer, $user->email);
         }
 
+        if (! empty($customer->erp) && ! empty($customer->kader_dari_erp)) {   // ERP belum versi mitra kader → jangan hapus ikatan lokal
+            $this->syncKaderFromErp($user, $customer);
+        }
+
         $user->save();
 
         return $user;
+    }
+
+    /**
+     * Mitra kader dikelola NUMART ERP (2026-11-20): pembina & jenis mitra dibaca dari ERP, bukan dari affiliate_referrals lokal.
+     * affiliate_kader_id = akun toko milik kader (bila kader pernah login di toko) — dipakai checkout atas nama mitra.
+     */
+    protected function syncKaderFromErp(User $user, object $customer): void
+    {
+        $kaderErpId = $customer->kader_pelanggan_id ?? null;
+        $user->affiliate_kader_id = $kaderErpId ? User::where('erp_customer_id', (int) $kaderErpId)->value('id') : null;
+        $user->partner_kind = $customer->jenis_mitra ?: null;
+        if (! empty($customer->nama_warung)) {
+            $user->warung_name = $customer->nama_warung;
+        }
+
+        if ($user->marketplace_role === User::ROLE_BACKOFFICE) {
+            return;
+        }
+        $code = $customer->kode_kader ?? null;
+        if ($code) {
+            $user->marketplace_role = User::ROLE_AFFILIATE_KADER;
+            $user->affiliate_active = true;
+            if (! User::where('affiliate_code', $code)->whereKeyNot($user->id ?? 0)->exists()) {
+                $user->affiliate_code = $code;
+            }
+        } elseif ($user->marketplace_role === User::ROLE_AFFILIATE_KADER) {
+            $user->affiliate_active = false;   // tidak lagi kader aktif di ERP
+        }
     }
 
     /**

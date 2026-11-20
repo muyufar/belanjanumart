@@ -3,6 +3,9 @@
 @section('title', 'Komisi')
 
 @section('content')
+    @if(\App\Support\NumartSource::erp())
+        @include('partials.erp-kader-moved', ['audience' => 'admin'])
+    @endif
     <h1 style="margin-top:0">Pembayaran komisi kader</h1>
     <p>
         <a href="{{ route('backoffice.affiliate.commissions', ['status' => 'accrued']) }}">Menunggu</a> ·

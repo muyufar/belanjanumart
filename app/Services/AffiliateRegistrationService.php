@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AffiliateReferral;
 use App\Models\User;
+use App\Support\NumartSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -15,6 +16,9 @@ class AffiliateRegistrationService
 
     public function promoteToKader(User $user): User
     {
+        if (NumartSource::erp()) {
+            throw new \InvalidArgumentException('Mitra kader kini dikelola di Backoffice NUMART ERP (Keuangan → Mitra Kader).');
+        }
         if ($user->affiliate_kader_id) {
             throw new \InvalidArgumentException('Member ini terdaftar di bawah mitra kader lain.');
         }
@@ -54,6 +58,10 @@ class AffiliateRegistrationService
      */
     public function registerMitra(User $kader, array $input): AffiliateReferral
     {
+        if (NumartSource::erp()) {
+            throw new \InvalidArgumentException('Pendaftaran mitra kini lewat Backoffice NUMART ERP (menu Kader Saya).');
+        }
+
         if (! $kader->isAffiliateKader() || ! $kader->affiliate_active) {
             throw new \InvalidArgumentException('Akun mitra kader tidak aktif.');
         }
@@ -128,6 +136,10 @@ class AffiliateRegistrationService
 
     public function syncUserFromReferral(User $user): User
     {
+        if (NumartSource::erp()) {
+            return $user;   // pembina & jenis mitra sudah disalin dari ERP saat login (NumartCustomerService::syncKaderFromErp)
+        }
+
         $kartu = strtoupper(trim((string) ($user->member_card ?? '')));
         if ($kartu === '') {
             return $user;
@@ -168,6 +180,23 @@ class AffiliateRegistrationService
 
         if ($user->affiliate_kader_id) {
             throw new \InvalidArgumentException('Akun sudah terhubung ke mitra kader.');
+        }
+
+        if (NumartSource::erp()) {
+            $erpId = (int) ($user->erp_customer_id ?? 0);
+            if ($erpId <= 0) {
+                throw new \InvalidArgumentException('Akun belum terhubung ke member NUMART. Silakan login ulang.');
+            }
+            try {
+                $customer = app(\App\Services\Erp\ErpCustomers::class)->applyReferral($erpId, $code);
+            } catch (\RuntimeException $e) {
+                if ($e->getCode() === 422 || $e->getCode() === 404) {
+                    throw new \InvalidArgumentException(preg_replace('/^\[[A-Z_]+\]\s*/', '', $e->getMessage()));
+                }
+                throw $e;
+            }
+
+            return $this->customers->applyCustomerToUser($user, $customer)->fresh();
         }
 
         $kader = User::query()

@@ -26,6 +26,10 @@ class AffiliateCommissionController extends Controller
 
     public function updateSettings(Request $request): RedirectResponse
     {
+        if (\App\Support\NumartSource::erp()) {
+            return back()->with('error', 'Tarif komisi kini diatur di Backoffice NUMART ERP (Keuangan → Mitra Kader → Tarif).');
+        }
+
         $validated = $request->validate([
             'warung' => 'required|numeric|min:0|max:100',
             'prioritas' => 'required|numeric|min:0|max:100',

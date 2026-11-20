@@ -100,6 +100,9 @@ class NumartErpAdapterTest extends TestCase
             (bool) preg_match('#/pelanggan/(\d+)$#', $path, $m) => isset($this->customers[(int) $m[1]])
                 ? Http::response(['data' => $this->customers[(int) $m[1]]])
                 : Http::response(['error' => ['code' => 'NOT_FOUND', 'message' => 'Pelanggan tidak ditemukan.']], 404),
+            (bool) preg_match('#/pelanggan/(\d+)/referral$#', $path, $m) => ($body['kode'] ?? '') === 'KDR-ERP001'
+                ? Http::response(['data' => ($this->customers[(int) $m[1]] = ['kader' => ['kader_id' => 1, 'pelanggan_id' => 88, 'kode' => 'KDR-ERP001', 'aktif' => true], 'jenis_mitra' => 'referral'] + $this->customers[(int) $m[1]])])
+                : Http::response(['error' => ['code' => 'VALIDATION', 'message' => 'Kode referral tidak valid atau kader nonaktif.']], 422),
             (bool) preg_match('#/pelanggan/(\d+)/riwayat$#', $path) => Http::response(['data' => [
                 ['nota' => 'GDG-2611-0001', 'waktu' => '2026-11-10 10:00:00', 'total' => '120000.00', 'jenis_bayar' => 'nontunai', 'status' => 'selesai', 'online' => true, 'cabang' => 'GDG', 'nama_cabang' => 'Gudang'],
             ]]),
@@ -143,7 +146,8 @@ class NumartErpAdapterTest extends TestCase
     {
         return ['pelanggan_id' => $id, 'nama' => $name, 'hp' => $hp, 'email' => null, 'alamat' => 'Muntilan', 'kartu' => $kartu, 'tipe_harga' => $tier,
             'cabang_asal_id' => $home, 'cabang_asal' => null, 'aktif' => true, 'poin' => 14,
-            'verifikasi' => ['status' => 'none', 'diajukan_pada' => null, 'diputuskan_pada' => null, 'catatan' => null, 'ada_foto_warung' => false]];
+            'verifikasi' => ['status' => 'none', 'diajukan_pada' => null, 'diputuskan_pada' => null, 'catatan' => null, 'ada_foto_warung' => false],
+            'jenis_mitra' => null, 'nama_warung' => null, 'kader' => null, 'kode_kader' => null];   // ERP dengan mitra kader (2026-11-20)
     }
 
     /** Penawaran ongkir ERP (O-5): tarif 12.000 − subsidi 2.000 (dihitung ERP dari margin) = 10.000; waktu UTC. */
@@ -333,35 +337,71 @@ class NumartErpAdapterTest extends TestCase
         $this->assertSame('Kurir: Budi', $order->tracking_note);
     }
 
-    public function test_erp_order_commission_uses_partner_rate_set_in_backoffice(): void
+    public function test_erp_orders_leave_commission_to_erp_and_kader_admin_points_to_erp(): void
     {
-        $admin = User::factory()->create(['marketplace_role' => User::ROLE_BACKOFFICE]);
-        $this->actingAs($admin)->get('/backoffice/affiliate/komisi')->assertOk()->assertSee('Mitra prioritas');
-        $this->actingAs($admin)->post('/backoffice/affiliate/komisi', [
-            'warung' => 1.5, 'prioritas' => 3, 'referral' => 0.75, 'basis' => 'subtotal', 'margin_share_min' => 0.5, 'margin_share_max' => 1.5,
-        ])->assertSessionHasNoErrors();
-
         $kader = User::factory()->create(['marketplace_role' => User::ROLE_AFFILIATE_KADER, 'affiliate_active' => true, 'affiliate_code' => 'KDR-UJI']);
-        $svc = app(AffiliateCommissionService::class);
+        $buyer = User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => 'prioritas']);
+        $this->assertNull(app(AffiliateCommissionService::class)->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $buyer->id, 'status' => 'processing'])));
+        $this->assertSame(0, AffiliateCommission::count(), 'komisi pesanan ERP dijurnal ERP, bukan di toko');
 
-        $prioritas = User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => 'prioritas']);
-        $c = $svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $prioritas->id, 'status' => 'processing']));
-        $this->assertSame([3780, 126000, 'prioritas'], [(int) $c->commission_amount, (int) $c->order_base_amount, $c->partner_kind]);   // 3% × 126.000
+        $admin = User::factory()->create(['marketplace_role' => User::ROLE_BACKOFFICE]);
+        $this->actingAs($admin)->get('/backoffice/affiliate/kader')->assertOk()->assertSee('Backoffice NUMART ERP');
+        $this->actingAs($admin)->post('/backoffice/affiliate/kader', ['member_card' => 'NUBLJ00000077'])->assertSessionHas('error');
+        $this->actingAs($admin)->post('/backoffice/affiliate/komisi', ['warung' => 1, 'prioritas' => 2, 'referral' => 1, 'basis' => 'subtotal',
+            'margin_share_min' => 0.5, 'margin_share_max' => 1.5])->assertSessionHas('error');
+        $this->actingAs($kader)->get('/mitra-kader')->assertOk()->assertSee('Kader Saya');
+    }
 
-        $referral = User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => null]);
-        $c = $svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $referral->id, 'status' => 'processing']));
-        $this->assertSame([945, 'referral'], [(int) $c->commission_amount, $c->partner_kind]);                                      // 0,75% × 126.000
+    public function test_login_copies_kader_relation_from_erp_and_referral_code_goes_to_erp(): void
+    {
+        $this->customers[88] = ['kode_kader' => 'KDR-ERP001'] + $this->erpCustomer(88, 'Kader Siti', '6281200000088', 'NUBLJ00000088', 'retail', 2);
+        $this->customers[77] = ['kader' => ['kader_id' => 1, 'pelanggan_id' => 88, 'kode' => 'KDR-ERP001', 'aktif' => true], 'jenis_mitra' => 'warung', 'nama_warung' => 'Warung Siti']
+            + $this->customers[77];
 
-        // Dasar total bayar (termasuk ongkir) & persen 0 = tanpa komisi
-        $this->actingAs($admin)->post('/backoffice/affiliate/komisi', [
-            'warung' => 0, 'prioritas' => 3, 'referral' => 0.75, 'basis' => 'grand_total', 'margin_share_min' => 0.5, 'margin_share_max' => 1.5,
-        ])->assertSessionHasNoErrors();
-        $c = $svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $prioritas->id, 'status' => 'processing', 'shipping_fee' => 10000, 'grand_total' => 136000]));
-        $this->assertSame(4080, (int) $c->commission_amount);                                                                        // 3% × 136.000
+        // Kader login → peran & kode dari ERP
+        $this->post('/masuk', ['card_number' => 'NUBLJ00000088'])->assertSessionHasNoErrors();
+        $kader = auth()->user();
+        $this->assertSame([User::ROLE_AFFILIATE_KADER, 'KDR-ERP001', true], [$kader->marketplace_role, $kader->affiliate_code, (bool) $kader->affiliate_active]);
+        auth()->logout();
 
-        $warung = User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => 'warung']);
-        $this->assertNull($svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $warung->id, 'status' => 'processing'])));
-        $this->assertSame(3, AffiliateCommission::count());
+        // Mitra login → tertaut ke akun toko kader (untuk checkout atas nama mitra)
+        $this->post('/masuk', ['card_number' => 'NUBLJ00000077'])->assertSessionHasNoErrors();
+        $this->assertSame([$kader->id, 'warung', 'Warung Siti'], [auth()->user()->affiliate_kader_id, auth()->user()->partner_kind, auth()->user()->warung_name]);
+        auth()->logout();
+
+        // Member lain memakai kode referral → diteruskan ke ERP
+        $this->customers[79] = $this->erpCustomer(79, 'Budi', '6281200000079', 'NUBLJ00000079', 'umum', 1);
+        $this->post('/masuk', ['card_number' => 'NUBLJ00000079'])->assertSessionHasNoErrors();
+        $this->post('/profil/kode-referral', ['referral_code' => 'KDR-SALAH'])->assertSessionHas('error', 'Kode referral tidak valid atau kader nonaktif.');
+        $this->post('/profil/kode-referral', ['referral_code' => 'kdr-erp001'])->assertSessionHas('success');
+        $this->assertSame([$kader->id, 'referral'], [auth()->user()->fresh()->affiliate_kader_id, auth()->user()->fresh()->partner_kind]);
+        $this->assertSame('KDR-ERP001', array_slice($this->callsTo('/referral', 'POST'), -1)[0]['body']['kode']);
+    }
+
+    public function test_older_erp_without_kader_fields_keeps_local_kader_link(): void
+    {
+        $kader = User::factory()->create(['marketplace_role' => User::ROLE_AFFILIATE_KADER, 'affiliate_code' => 'KDR-LOKAL1']);
+        User::factory()->create(['erp_customer_id' => 77, 'member_card' => 'NUBLJ00000077', 'affiliate_kader_id' => $kader->id, 'partner_kind' => 'warung']);
+        $this->customers[77] = array_diff_key($this->customers[77], array_flip(['jenis_mitra', 'nama_warung', 'kader', 'kode_kader']));   // ERP versi lama
+
+        $this->post('/masuk', ['card_number' => 'NUBLJ00000077'])->assertSessionHasNoErrors();
+        $this->assertSame([$kader->id, 'warung'], [auth()->user()->affiliate_kader_id, auth()->user()->partner_kind], 'urutan rilis aman: ikatan lokal tidak terhapus');
+    }
+
+    public function test_export_for_erp_contains_kaders_mitra_and_rates(): void
+    {
+        $kader = User::factory()->create(['marketplace_role' => User::ROLE_AFFILIATE_KADER, 'affiliate_code' => 'KDR-LAMA01', 'member_card' => 'NUBLJ00000011', 'erp_customer_id' => 11]);
+        User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => 'warung', 'member_card' => 'NUBLJ00000012', 'warung_name' => 'Warung A']);
+        \App\Models\AffiliateReferral::create(['affiliate_user_id' => $kader->id, 'member_card' => 'NUBLJ00000013', 'partner_kind' => 'prioritas',
+            'customer_name' => 'Toko B', 'customer_phone' => '6281200000013']);
+        $file = tempnam(sys_get_temp_dir(), 'kdr');
+
+        $this->artisan('affiliate:ekspor-erp', ['file' => $file])->assertSuccessful();
+        $d = json_decode(file_get_contents($file), true);
+        $this->assertSame([['KDR-LAMA01', 11]], array_map(fn ($k) => [$k['kode'], $k['pelanggan_id']], $d['kader']));
+        $this->assertSame([['NUBLJ00000012', 'warung', 'NUBLJ00000011'], ['NUBLJ00000013', 'prioritas', 'NUBLJ00000011']],
+            array_map(fn ($m) => [$m['kartu'], $m['jenis'], $m['kader_kartu']], $d['mitra']));
+        $this->assertArrayHasKey('referral', $d['tarif']);
     }
 
     public function test_admin_cancel_releases_erp_reservation(): void

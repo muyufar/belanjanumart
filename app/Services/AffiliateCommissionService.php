@@ -34,10 +34,9 @@ class AffiliateCommissionService
 
         $order->loadMissing('items');
 
-        // ERP tidak membuka HPP ke mitra → margin tidak bisa dihitung. Pesanan ERP memakai % per jenis mitra
-        // (warung / prioritas / referral) dari subtotal atau grand total — diatur di Backoffice → Komisi.
-        if ($order->numart_source === 'erp' && $order->items->contains(fn ($item) => (int) $item->harga_beli <= 0)) {
-            return $this->accrueByPartnerRate($order, $affiliate, $buyer);
+        // Pesanan ERP: komisi dihitung & dijurnal NUMART ERP saat nota dibuat (Keuangan → Mitra Kader), tidak dicatat di toko.
+        if ($order->numart_source === 'erp') {
+            return null;
         }
 
         $subtotal = (int) $order->subtotal;
@@ -61,33 +60,6 @@ class AffiliateCommissionService
             'margin_share_percent' => $sharePercent,
             'commission_percent' => $sharePercent,
             'commission_amount' => $amount,
-            'status' => AffiliateCommission::STATUS_ACCRUED,
-            'accrued_at' => now(),
-        ]);
-    }
-
-    /** Komisi = % jenis mitra × dasar (subtotal / grand total), tanpa HPP. */
-    protected function accrueByPartnerRate(Order $order, User $affiliate, User $buyer): ?AffiliateCommission
-    {
-        $settings = $this->settings->all();
-        $kind = $buyer->partner_kind ?: 'referral';
-        $percent = $this->settings->percentForPartnerKind($kind);
-        $base = $settings['basis'] === 'grand_total' ? (int) $order->grand_total : (int) $order->subtotal;
-
-        if ($percent <= 0 || $base <= 0) {
-            return null;
-        }
-
-        return AffiliateCommission::create([
-            'affiliate_user_id' => $affiliate->id,
-            'referred_user_id' => $buyer->id,
-            'order_id' => $order->id,
-            'partner_kind' => $kind,
-            'order_base_amount' => $base,
-            'order_net_margin' => 0,             // HPP tidak diketahui di ERP
-            'margin_share_percent' => 0,
-            'commission_percent' => $percent,
-            'commission_amount' => (int) floor($base * $percent / 100),
             'status' => AffiliateCommission::STATUS_ACCRUED,
             'accrued_at' => now(),
         ]);

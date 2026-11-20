@@ -3,6 +3,9 @@
 @section('title', 'Mitra kader')
 
 @section('content')
+    @if(\App\Support\NumartSource::erp())
+        @include('partials.erp-kader-moved', ['audience' => 'admin'])
+    @endif
     <h1 style="margin-top:0">Mitra kader / affiliate</h1>
     <p class="muted">Daftarkan kader di sini. Mereka login di toko dengan <strong>nomor kartu member</strong> dan kode referral untuk member.</p>
 

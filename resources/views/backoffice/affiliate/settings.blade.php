@@ -3,6 +3,9 @@
 @section('title', 'Komisi affiliate')
 
 @section('content')
+    @if(\App\Support\NumartSource::erp())
+        @include('partials.erp-kader-moved', ['audience' => 'admin'])
+    @endif
     <h1 style="margin-top:0">Komisi mitra kader</h1>
     <p class="muted">Persen komisi yang diterima kader dari setiap pesanan mitranya. Perubahan berlaku untuk pesanan yang dibayar setelah disimpan; komisi yang sudah tercatat tidak berubah.</p>
 
