@@ -10,7 +10,7 @@ class AffiliateSettingsService
 {
     private const CACHE_KEY = 'affiliate.settings';
 
-    /** @return array{warung: float, prioritas: float, basis: string, margin_share_min: float, margin_share_max: float} */
+    /** @return array{warung: float, prioritas: float, referral: float, basis: string, margin_share_min: float, margin_share_max: float} */
     public function all(): array
     {
         if (! Schema::hasTable('affiliate_settings')) {
@@ -24,6 +24,7 @@ class AffiliateSettingsService
             return [
                 'warung' => (float) ($rows['commission_warung_percent'] ?? $defaults['warung']),
                 'prioritas' => (float) ($rows['commission_prioritas_percent'] ?? $defaults['prioritas']),
+                'referral' => (float) ($rows['commission_referral_percent'] ?? $defaults['referral']),
                 'basis' => (string) ($rows['commission_basis'] ?? $defaults['basis']),
                 'margin_share_min' => (float) ($rows['commission_margin_share_min'] ?? $defaults['margin_share_min']),
                 'margin_share_max' => (float) ($rows['commission_margin_share_max'] ?? $defaults['margin_share_max']),
@@ -31,12 +32,13 @@ class AffiliateSettingsService
         });
     }
 
-    /** @return array{warung: float, prioritas: float, basis: string, margin_share_min: float, margin_share_max: float} */
+    /** @return array{warung: float, prioritas: float, referral: float, basis: string, margin_share_min: float, margin_share_max: float} */
     public function defaults(): array
     {
         return [
             'warung' => (float) config('marketplace.affiliate.commission_warung_percent', 1.5),
             'prioritas' => (float) config('marketplace.affiliate.commission_prioritas_percent', 2.5),
+            'referral' => (float) config('marketplace.affiliate.commission_referral_percent', 1.0),
             'basis' => (string) config('marketplace.affiliate.commission_basis', 'subtotal'),
             'margin_share_min' => (float) config('marketplace.affiliate.commission_margin_share_min', 0.5),
             'margin_share_max' => (float) config('marketplace.affiliate.commission_margin_share_max', 1.5),
@@ -85,16 +87,17 @@ class AffiliateSettingsService
         return match ($kind) {
             'prioritas' => $settings['prioritas'],
             'warung' => $settings['warung'],
-            default => 0.0,
+            default => $settings['referral'],   // member lewat kode referral
         };
     }
 
-    /** @param  array{warung?: float, prioritas?: float, basis?: string}  $input */
+    /** @param  array{warung?: float, prioritas?: float, referral?: float, basis?: string}  $input */
     public function update(array $input): void
     {
         $map = [
             'warung' => 'commission_warung_percent',
             'prioritas' => 'commission_prioritas_percent',
+            'referral' => 'commission_referral_percent',
             'basis' => 'commission_basis',
         ];
 

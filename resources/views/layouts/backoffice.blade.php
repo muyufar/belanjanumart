@@ -14,7 +14,7 @@
         <nav class="backoffice-nav">
             <a href="{{ route('backoffice.dashboard') }}">Dashboard</a>
             <a href="{{ route('backoffice.affiliate.kaders') }}">Mitra kader</a>
-            <a href="{{ route('backoffice.affiliate.settings') }}">Komisi margin</a>
+            <a href="{{ route('backoffice.affiliate.settings') }}">Pengaturan komisi</a>
             <a href="{{ route('backoffice.affiliate.commissions') }}">Pembayaran komisi</a>
             <a href="{{ route('shop.index') }}">← Toko online</a>
         </nav>

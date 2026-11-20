@@ -126,6 +126,7 @@ return [
     'affiliate' => [
         'commission_warung_percent' => (float) env('AFFILIATE_COMMISSION_WARUNG', 1.5),
         'commission_prioritas_percent' => (float) env('AFFILIATE_COMMISSION_PRIORITAS', 2.5),
+        'commission_referral_percent' => (float) env('AFFILIATE_COMMISSION_REFERRAL', 1.0),
         'commission_basis' => env('AFFILIATE_COMMISSION_BASIS', 'subtotal'),
     ],
 ];

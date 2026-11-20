@@ -333,14 +333,35 @@ class NumartErpAdapterTest extends TestCase
         $this->assertSame('Kurir: Budi', $order->tracking_note);
     }
 
-    public function test_affiliate_commission_is_withheld_for_erp_orders_without_hpp(): void
+    public function test_erp_order_commission_uses_partner_rate_set_in_backoffice(): void
     {
-        $kader = User::factory()->create(['marketplace_role' => User::ROLE_AFFILIATE_KADER, 'affiliate_active' => true, 'affiliate_code' => 'KDR-UJI']);
-        $buyer = User::factory()->create(['affiliate_kader_id' => $kader->id]);
-        $order = $this->order(['numart_source' => 'erp', 'user_id' => $buyer->id, 'status' => 'processing']);
+        $admin = User::factory()->create(['marketplace_role' => User::ROLE_BACKOFFICE]);
+        $this->actingAs($admin)->get('/backoffice/affiliate/komisi')->assertOk()->assertSee('Mitra prioritas');
+        $this->actingAs($admin)->post('/backoffice/affiliate/komisi', [
+            'warung' => 1.5, 'prioritas' => 3, 'referral' => 0.75, 'basis' => 'subtotal', 'margin_share_min' => 0.5, 'margin_share_max' => 1.5,
+        ])->assertSessionHasNoErrors();
 
-        $this->assertNull(app(AffiliateCommissionService::class)->accrueForOrder($order));
-        $this->assertSame(0, AffiliateCommission::count());
+        $kader = User::factory()->create(['marketplace_role' => User::ROLE_AFFILIATE_KADER, 'affiliate_active' => true, 'affiliate_code' => 'KDR-UJI']);
+        $svc = app(AffiliateCommissionService::class);
+
+        $prioritas = User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => 'prioritas']);
+        $c = $svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $prioritas->id, 'status' => 'processing']));
+        $this->assertSame([3780, 126000, 'prioritas'], [(int) $c->commission_amount, (int) $c->order_base_amount, $c->partner_kind]);   // 3% × 126.000
+
+        $referral = User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => null]);
+        $c = $svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $referral->id, 'status' => 'processing']));
+        $this->assertSame([945, 'referral'], [(int) $c->commission_amount, $c->partner_kind]);                                      // 0,75% × 126.000
+
+        // Dasar total bayar (termasuk ongkir) & persen 0 = tanpa komisi
+        $this->actingAs($admin)->post('/backoffice/affiliate/komisi', [
+            'warung' => 0, 'prioritas' => 3, 'referral' => 0.75, 'basis' => 'grand_total', 'margin_share_min' => 0.5, 'margin_share_max' => 1.5,
+        ])->assertSessionHasNoErrors();
+        $c = $svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $prioritas->id, 'status' => 'processing', 'shipping_fee' => 10000, 'grand_total' => 136000]));
+        $this->assertSame(4080, (int) $c->commission_amount);                                                                        // 3% × 136.000
+
+        $warung = User::factory()->create(['affiliate_kader_id' => $kader->id, 'partner_kind' => 'warung']);
+        $this->assertNull($svc->accrueForOrder($this->order(['numart_source' => 'erp', 'user_id' => $warung->id, 'status' => 'processing'])));
+        $this->assertSame(3, AffiliateCommission::count());
     }
 
     public function test_admin_cancel_releases_erp_reservation(): void

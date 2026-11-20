@@ -27,13 +27,23 @@ class AffiliateCommissionController extends Controller
     public function updateSettings(Request $request): RedirectResponse
     {
         $validated = $request->validate([
+            'warung' => 'required|numeric|min:0|max:100',
+            'prioritas' => 'required|numeric|min:0|max:100',
+            'referral' => 'required|numeric|min:0|max:100',
+            'basis' => 'required|in:subtotal,grand_total',
             'margin_share_min' => 'required|numeric|min:0|max:100',
             'margin_share_max' => 'required|numeric|min:0|max:100|gte:margin_share_min',
         ]);
 
-        $this->settings->updateMarginShare($validated['margin_share_min'], $validated['margin_share_max']);
+        $this->settings->update([
+            'warung' => (float) $validated['warung'],
+            'prioritas' => (float) $validated['prioritas'],
+            'referral' => (float) $validated['referral'],
+            'basis' => $validated['basis'],
+        ]);
+        $this->settings->updateMarginShare((float) $validated['margin_share_min'], (float) $validated['margin_share_max']);
 
-        return back()->with('success', 'Pengaturan komisi margin bersih diperbarui.');
+        return back()->with('success', 'Pengaturan komisi diperbarui. Berlaku untuk pesanan yang dibayar setelah ini.');
     }
 
     public function index(Request $request): View
